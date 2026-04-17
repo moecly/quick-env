@@ -34,6 +34,10 @@ class Tool:
     exclude: list[str] = field(default_factory=list)
     aliases: list[str] = field(default_factory=list)
     description: str = ""
+    custom_script: Optional[str] = None
+    custom_url: Optional[str] = None
+    custom_url_extract: bool = True
+    custom_version_cmd: Optional[str] = None
 
     def matches(self, name: str) -> bool:
         return name == self.name or name in self.aliases

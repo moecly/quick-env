@@ -8,7 +8,10 @@ from quick_env.installer import (
     GitHubInstaller,
     PackageManagerInstaller,
     DotfileInstaller,
+    CustomScriptInstaller,
+    CustomURLInstaller,
     InstallerFactory,
+    InstallerRegistry,
     InstallResult,
     SourceInfo,
     ToolDetection,
@@ -215,6 +218,87 @@ class TestInstallerFactory(unittest.TestCase):
         installer = InstallerFactory.get_best_installer(tool)
         self.assertIsNotNone(installer)
         self.assertEqual(installer.name, "dotfile")
+
+
+class TestInstallerRegistry(unittest.TestCase):
+    def test_registry_has_builtin_installers(self):
+        self.assertIn("github", InstallerRegistry.list_all())
+        self.assertIn("package_manager", InstallerRegistry.list_all())
+        self.assertIn("dotfile", InstallerRegistry.list_all())
+        self.assertIn("custom_script", InstallerRegistry.list_all())
+        self.assertIn("custom_url", InstallerRegistry.list_all())
+
+    def test_registry_get_builtin_installers(self):
+        github_cls = InstallerRegistry.get("github")
+        self.assertEqual(github_cls, GitHubInstaller)
+
+        pm_cls = InstallerRegistry.get("package_manager")
+        self.assertEqual(pm_cls, PackageManagerInstaller)
+
+        dotfile_cls = InstallerRegistry.get("dotfile")
+        self.assertEqual(dotfile_cls, DotfileInstaller)
+
+    def test_registry_create_installers(self):
+        github = InstallerRegistry.create("github")
+        self.assertIsInstance(github, GitHubInstaller)
+
+        dotfile = InstallerRegistry.create("dotfile")
+        self.assertIsInstance(dotfile, DotfileInstaller)
+
+    def test_registry_returns_none_for_invalid(self):
+        result = InstallerRegistry.get("nonexistent")
+        self.assertIsNone(result)
+
+        result = InstallerRegistry.create("nonexistent")
+        self.assertIsNone(result)
+
+
+class TestCustomScriptInstaller(unittest.TestCase):
+    def test_custom_script_installer_properties(self):
+        installer = CustomScriptInstaller()
+        self.assertEqual(installer.name, "custom_script")
+        self.assertEqual(installer.priority, 5)
+
+    def test_custom_script_is_available(self):
+        installer = CustomScriptInstaller()
+        self.assertTrue(installer.is_available())
+
+
+class TestCustomURLInstaller(unittest.TestCase):
+    def test_custom_url_installer_properties(self):
+        installer = CustomURLInstaller()
+        self.assertEqual(installer.name, "custom_url")
+        self.assertEqual(installer.priority, 10)
+
+    def test_custom_url_is_available_with_curl(self):
+        installer = CustomURLInstaller()
+        self.assertTrue(installer.is_available())
+
+
+class TestGetBestInstallerWithCustom(unittest.TestCase):
+    def test_get_best_installer_prefers_custom_script(self):
+        from quick_env.tools import Tool
+
+        tool = Tool(
+            name="test-script-tool",
+            custom_script="echo install",
+            installable_by=["custom_script"],
+        )
+        installer = InstallerFactory.get_best_installer(tool)
+        self.assertIsNotNone(installer)
+        self.assertEqual(installer.name, "custom_script")
+
+    def test_get_best_installer_custom_url(self):
+        from quick_env.tools import Tool
+
+        tool = Tool(
+            name="test-url-tool",
+            custom_url="https://example.com/tool.tar.gz",
+            installable_by=["custom_url"],
+        )
+        installer = InstallerFactory.get_best_installer(tool)
+        self.assertIsNotNone(installer)
+        self.assertEqual(installer.name, "custom_url")
 
 
 if __name__ == "__main__":

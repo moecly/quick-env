@@ -113,6 +113,10 @@ class Config:
                 links=links,
                 exclude=tool_data.get("exclude", []),
                 aliases=tool_data.get("aliases", []),
+                custom_script=tool_data.get("custom_script"),
+                custom_url=tool_data.get("custom_url"),
+                custom_url_extract=tool_data.get("custom_url_extract", True),
+                custom_version_cmd=tool_data.get("custom_version_cmd"),
             )
 
     def get_tool(self, name: str) -> Optional[ToolConfig]:

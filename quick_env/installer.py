@@ -912,6 +912,279 @@ class DotfileInstaller(Installer):
         return result
 
 
+class InstallerRegistry:
+    """安装器注册表，支持内置 + 插件扩展"""
+
+    _builtin: dict[str, type] = {}
+    _extensions: dict[str, type] = {}
+
+    @classmethod
+    def register(cls, name: str, installer_class: type):
+        """注册安装器（内置或插件扩展）"""
+        if not issubclass(installer_class, Installer):
+            raise TypeError(f"{installer_class} must inherit from Installer")
+        cls._extensions[name] = installer_class
+
+    @classmethod
+    def get(cls, name: str) -> Optional[type]:
+        """获取安装器类"""
+        return cls._builtin.get(name) or cls._extensions.get(name)
+
+    @classmethod
+    def create(cls, name: str) -> Optional[Installer]:
+        """创建安装器实例"""
+        installer_class = cls.get(name)
+        return installer_class() if installer_class else None
+
+    @classmethod
+    def list_all(cls) -> list[str]:
+        """列出所有可用的安装器"""
+        return list(set(cls._builtin.keys()) | set(cls._extensions.keys()))
+
+    @classmethod
+    def load_plugins(cls, plugin_dir: Optional[Path] = None):
+        """从插件目录加载插件"""
+        if plugin_dir is None:
+            plugin_dir = Path.home() / ".quick-env" / "plugins"
+
+        if not plugin_dir.exists():
+            return
+
+        import sys
+
+        if str(plugin_dir) not in sys.path:
+            sys.path.insert(0, str(plugin_dir))
+
+        for plugin_file in plugin_dir.glob("*.py"):
+            if plugin_file.name.startswith("_"):
+                continue
+            try:
+                import importlib.util
+
+                spec = importlib.util.spec_from_file_location(
+                    plugin_file.stem, plugin_file
+                )
+                if spec and spec.loader:
+                    module = importlib.util.module_from_spec(spec)
+                    spec.loader.exec_module(module)
+            except Exception:
+                pass
+
+
+class CustomScriptInstaller(Installer):
+    name = "custom_script"
+    priority = 5
+
+    def __init__(self):
+        self.platform = detect_platform()
+        self.paths = get_env_paths()
+
+    def is_available(self) -> bool:
+        return True
+
+    def is_installed(self, tool: Tool) -> bool:
+        if not tool.custom_script:
+            return False
+        cmd_name = tool.name
+        which_path = shutil.which(cmd_name)
+        if which_path:
+            quick_env_bin = Path(self.paths["quick_env_bin"]).resolve()
+            tool_path = Path(which_path).resolve()
+            return tool_path.parent.resolve() == quick_env_bin
+        return False
+
+    def get_version(self, tool: Tool) -> Optional[str]:
+        if tool.custom_version_cmd:
+            try:
+                result = subprocess.run(
+                    tool.custom_version_cmd,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode == 0:
+                    output = result.stdout.strip()
+                    version_match = re.search(r"(\d+\.\d+\.\d+[\d.a-z-]*)", output)
+                    if version_match:
+                        return version_match.group(1)
+                    return output.split()[0] if output else None
+            except Exception:
+                pass
+        return None
+
+    def install(self, tool: Tool) -> InstallResult:
+        if not tool.custom_script:
+            return InstallResult(False, "No custom_script defined", self.name)
+
+        try:
+            log_install(
+                tool.display_name, self.name, "Installing with custom script..."
+            )
+            result = subprocess.run(
+                tool.custom_script,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=300,
+            )
+
+            if result.returncode == 0:
+                version = self.get_version(tool)
+                log_install(tool.display_name, self.name, f"Installed successfully")
+                return InstallResult(
+                    True, f"Installed {tool.display_name}", self.name, version
+                )
+            else:
+                error_msg = (
+                    result.stderr.strip() or result.stdout.strip() or "Unknown error"
+                )
+                return InstallResult(False, error_msg, self.name)
+        except subprocess.TimeoutExpired:
+            return InstallResult(False, "Installation timed out", self.name)
+        except Exception as e:
+            return InstallResult(False, str(e), self.name)
+
+    def uninstall(self, tool: Tool) -> InstallResult:
+        return InstallResult(False, "Use custom script to uninstall", self.name)
+
+
+class CustomURLInstaller(Installer):
+    name = "custom_url"
+    priority = 10
+
+    def __init__(self):
+        self.platform = detect_platform()
+        self.paths = get_env_paths()
+
+    def is_available(self) -> bool:
+        return shutil.which("curl") is not None or shutil.which("wget") is not None
+
+    def _get_data_dir(self, tool: Tool, version: str = "latest") -> Path:
+        clean_version = version.lstrip("v").replace("/", "-")
+        return Path(self.paths["quick_env_tools"]) / f"{tool.name}_{clean_version}"
+
+    def _get_bin_path(self, tool: Tool) -> Path:
+        return Path(self.paths["quick_env_bin"]) / self.platform.bin_name(tool.name)
+
+    def is_installed(self, tool: Tool) -> bool:
+        if not tool.custom_url:
+            return False
+        bin_path = self._get_bin_path(tool)
+        return bin_path.exists() or self.platform.is_bin_installed(
+            Path(self.paths["quick_env_bin"]), tool.name
+        )
+
+    def get_version(self, tool: Tool) -> Optional[str]:
+        if tool.custom_version_cmd:
+            try:
+                result = subprocess.run(
+                    tool.custom_version_cmd,
+                    shell=True,
+                    capture_output=True,
+                    text=True,
+                    timeout=10,
+                )
+                if result.returncode == 0:
+                    output = result.stdout.strip()
+                    version_match = re.search(r"(\d+\.\d+\.\d+[\d.a-z-]*)", output)
+                    if version_match:
+                        return version_match.group(1)
+                    return output.split()[0] if output else None
+            except Exception:
+                pass
+
+        bin_path = self._get_bin_path(tool)
+        if bin_path.exists() or bin_path.is_symlink():
+            executable = self.platform.get_bin_executable_path(
+                Path(self.paths["quick_env_bin"]), tool.name
+            )
+            if executable and executable.parent.exists():
+                data_dir = executable.parent
+                if "_" in data_dir.name:
+                    return data_dir.name.split("_", 1)[1]
+        return None
+
+    def install(self, tool: Tool) -> InstallResult:
+        if not tool.custom_url:
+            return InstallResult(False, "No custom_url defined", self.name)
+
+        try:
+            cache_dir = Path(self.paths["quick_env_cache"])
+            cache_dir.mkdir(parents=True, exist_ok=True)
+
+            url = tool.custom_url
+            filename = url.split("/")[-1].split("?")[0]
+            cache_path = cache_dir / filename
+
+            log_install(tool.display_name, self.name, f"Downloading from {url}...")
+            success = download_file(url, cache_path)
+            if not success:
+                return InstallResult(False, f"Failed to download {url}", self.name)
+
+            data_dir = self._get_data_dir(tool)
+            data_dir.mkdir(parents=True, exist_ok=True)
+
+            if tool.custom_url_extract:
+                if filename.endswith(".tar.gz") or filename.endswith(".tgz"):
+                    extract_tarball(cache_path, data_dir)
+                elif filename.endswith(".zip"):
+                    extract_zip(cache_path, data_dir)
+                else:
+                    shutil.copy2(cache_path, data_dir / tool.name)
+            else:
+                bin_path = data_dir / tool.name
+                shutil.copy2(cache_path, bin_path)
+                make_executable(bin_path)
+
+            bin_path = self._get_bin_path(tool)
+            target_exe = self._find_executable(data_dir, tool.name)
+            if target_exe:
+                self.platform.install_bin_entry(bin_path, target_exe)
+
+            version = self.get_version(tool)
+            log_install(tool.display_name, self.name, f"Installed successfully")
+            return InstallResult(
+                True, f"Installed {tool.display_name}", self.name, version
+            )
+
+        except Exception as e:
+            return InstallResult(False, str(e), self.name)
+
+    def _find_executable(self, data_dir: Path, tool_name: str) -> Optional[Path]:
+        exe_name = self.platform.exe_name(tool_name)
+        exe_path = data_dir / exe_name
+        if exe_path.exists():
+            return exe_path
+
+        for pattern in ["*", "bin/*", f"{tool_name}*"]:
+            for path in data_dir.rglob(pattern):
+                if path.is_file() and self.platform.find_exe(path.parent, tool_name):
+                    return path
+        return None
+
+    def uninstall(self, tool: Tool) -> InstallResult:
+        bin_path = self._get_bin_path(tool)
+        self.platform.remove_bin_entry(bin_path)
+
+        for data_dir in Path(self.paths["quick_env_tools"]).glob(f"{tool.name}_*"):
+            if data_dir.is_dir():
+                shutil.rmtree(data_dir)
+
+        return InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
+
+
+InstallerRegistry._builtin = {
+    "github": GitHubInstaller,
+    "package_manager": PackageManagerInstaller,
+    "system": PackageManagerInstaller,
+    "dotfile": DotfileInstaller,
+    "git_clone": DotfileInstaller,
+    "custom_script": CustomScriptInstaller,
+    "custom_url": CustomURLInstaller,
+}
+
+
 class InstallerFactory:
     _instances: dict = {}
 
@@ -920,17 +1193,10 @@ class InstallerFactory:
         if name in cls._instances:
             return cls._instances[name]
 
-        installers = {
-            "github": GitHubInstaller,
-            "system": PackageManagerInstaller,
-            "package_manager": PackageManagerInstaller,
-            "git_clone": DotfileInstaller,
-            "dotfile": DotfileInstaller,
-        }
-
-        if name in installers:
-            cls._instances[name] = installers[name]()
-            return cls._instances[name]
+        installer = InstallerRegistry.create(name)
+        if installer:
+            cls._instances[name] = installer
+            return installer
         return None
 
     @classmethod
@@ -947,16 +1213,21 @@ class InstallerFactory:
 
     @classmethod
     def get_all_installers(cls) -> List[Installer]:
-        return [
-            cls.get_installer("github"),
-            cls.get_installer("system"),
-            cls.get_installer("dotfile"),
-        ]
+        all_names = InstallerRegistry.list_all()
+        installers = []
+        for name in all_names:
+            installer = cls.get_installer(name)
+            if installer and installer.is_available():
+                installers.append(installer)
+        return installers
 
     @classmethod
     def get_best_installer(cls, tool: Tool) -> Optional[Installer]:
         if tool.is_dotfile():
             return cls.get_installer("dotfile")
+
+        if tool.custom_script:
+            return cls.get_installer("custom_script")
 
         available = []
         for name in tool.installable_by:
@@ -982,7 +1253,7 @@ class InstallerFactory:
                 is_current = False
                 if which_path:
                     tool_path = Path(which_path).resolve()
-                    if installer.name == "github":
+                    if installer.name in ("github", "custom_url"):
                         is_current = tool_path.parent.resolve() == quick_env_bin
                     else:
                         is_current = True

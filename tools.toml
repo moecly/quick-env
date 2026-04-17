@@ -131,3 +131,45 @@ links = [
     { glob = "*", to = "~/.config/nvim/" },
 ]
 exclude = ["*.md", "README.md", ".git", "LICENSE", "lazyvim.json", "lazy-lock.json", "stylua.toml"]
+
+# ==================== Extension Examples (Commented Out) ====================
+# Uncomment and modify to use these examples
+
+# [tools.fzf]
+# type = "binary"
+# name = "fzf"
+# display_name = "FZF"
+# description = "General-purpose command-line fuzzy finder"
+# installable_by = ["custom_script", "github", "package_manager"]
+# custom_script = "git clone --depth 1 https://github.com/junegunn/fzf.git ~/.quick-env/tools/fzf_src && ~/.quick-env/tools/fzf_src/install --all --no-bash --no-fish --no-zsh"
+# custom_version_cmd = "fzf --version"
+# priority.custom_script = 5
+# priority.github = 10
+# priority.package_manager = 30
+# package_name = "fzf"
+# repo = "junegunn/fzf"
+# aliases = ["fz"]
+
+# [tools.delta]
+# type = "binary"
+# name = "delta"
+# display_name = "Delta"
+# description = "Syntax-highlighting pager for git"
+# installable_by = ["custom_url", "github"]
+# custom_url = "https://github.com/dandavison/delta/releases/download/0.18.1/delta-0.18.1-x86_64-unknown-linux-musl.tar.gz"
+# custom_url_extract = true
+# custom_version_cmd = "delta --version"
+# priority.custom_url = 5
+# priority.github = 10
+# repo = "dandavison/delta"
+# aliases = ["git-delta"]
+
+# [tools.my-tool]
+# type = "binary"
+# name = "my-tool"
+# display_name = "My Tool"
+# description = "Example custom tool installation"
+# installable_by = ["custom_url"]
+# custom_url = "https://example.com/my-tool.tar.gz"
+# custom_url_extract = true
+# priority.custom_url = 10

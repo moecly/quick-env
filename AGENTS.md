@@ -43,6 +43,10 @@
 - [x] 并行安装支持（`install all` 并发下载）
 - [x] 配置迁移：更新 `tools.toml` 格式
 - [x] 增强 doctor 命令：诊断工具状态（软链接、可用性、dotfile 链接）
+- [x] 实现 `doctor --fix` 自动修复功能
+- [x] 可扩展安装器架构（InstallerRegistry + 插件机制）
+- [x] 新增 custom_script 安装器
+- [x] 新增 custom_url 安装器
 
 ## 开发规范
 
@@ -212,7 +216,7 @@ Time: 2026-04-17 22:00:00
 
 3. Config Check
   ✓ Config exists: ~/.quick-env/configs/tools.toml
-      Tools: 7 (binary: 5, dotfile: 2)
+      Tools: 10 (binary: 8, dotfile: 2)
 
 4. Binary Tools Check
   ✓ lazygit      v0.40.0    OK                   (quick-env)
@@ -302,6 +306,8 @@ quick-env doctor --fix
 
 ### 二进制工具 (type = "binary")
 
+#### GitHub Release 安装
+
 ```toml
 [tools.xxx]
 type = "binary"              # 工具类型：binary
@@ -370,6 +376,93 @@ links = [
 
 使用 glob 语法排除文件，如 `["*.md", ".git", "LICENSE"]`
 
+### 扩展安装器
+
+#### 自定义脚本安装 (custom_script)
+
+```toml
+[tools.fzf]
+type = "binary"
+name = "fzf"
+display_name = "FZF"
+description = "General-purpose command-line fuzzy finder"
+installable_by = ["custom_script", "github", "package_manager"]
+custom_script = "git clone --depth 1 https://github.com/junegunn/fzf.git ~/.quick-env/tools/fzf_src && ~/.quick-env/tools/fzf_src/install --all"
+custom_version_cmd = "fzf --version"
+priority.custom_script = 5
+priority.github = 10
+priority.package_manager = 30
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `custom_script` | string | 自定义安装脚本（shell 命令） |
+| `custom_version_cmd` | string | 版本检测命令（可选） |
+
+#### 自定义 URL 安装 (custom_url)
+
+```toml
+[tools.delta]
+type = "binary"
+name = "delta"
+display_name = "Delta"
+description = "Syntax-highlighting pager for git"
+installable_by = ["custom_url", "github"]
+custom_url = "https://github.com/dandavison/delta/releases/download/0.18.1/delta-0.18.1-x86_64-unknown-linux-musl.tar.gz"
+custom_url_extract = true
+custom_version_cmd = "delta --version"
+priority.custom_url = 5
+priority.github = 10
+```
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `custom_url` | string | 自定义下载 URL |
+| `custom_url_extract` | bool | 是否自动解压（默认 true） |
+| `custom_version_cmd` | string | 版本检测命令（可选） |
+
+## 安装器架构
+
+### 安装器类型
+
+| 类型 | 标识符 | 说明 |
+|------|--------|------|
+| GitHub Release | `github` | 从 GitHub Release 下载 |
+| 包管理器 | `package_manager` | apt/brew/dnf 等 |
+| Dotfile | `dotfile` | Git clone + symlink |
+| 自定义脚本 | `custom_script` | 执行自定义 shell 脚本 |
+| 自定义 URL | `custom_url` | 从自定义 URL 下载 |
+
+### InstallerRegistry
+
+安装器使用注册表模式管理，支持内置 + 插件扩展：
+
+```python
+from quick_env.installer import InstallerRegistry, Installer
+
+class MyInstaller(Installer):
+    name = "my_installer"
+    # ...
+
+InstallerRegistry.register("my_installer", MyInstaller)
+```
+
+### 插件机制
+
+用户可在 `~/.quick-env/plugins/` 目录下放置插件：
+
+```python
+# ~/.quick-env/plugins/my_installers.py
+from quick_env.installer import InstallerRegistry, Installer
+
+class MyInstaller(Installer):
+    name = "my_installer"
+    priority = 1
+    # 实现抽象方法...
+
+InstallerRegistry.register("my_installer", MyInstaller)
+```
+
 ## 添加新工具流程
 
 **添加新二进制工具**（无需修改代码）：
@@ -393,6 +486,25 @@ links = [
 ]
 ```
 
+**添加自定义脚本安装**（无需修改代码）：
+```toml
+[tools.my-tool]
+type = "binary"
+name = "my-tool"
+installable_by = ["custom_script"]
+custom_script = "curl -L https://example.com/install.sh | bash"
+```
+
+**添加自定义 URL 安装**（无需修改代码）：
+```toml
+[tools.my-tool]
+type = "binary"
+name = "my-tool"
+installable_by = ["custom_url"]
+custom_url = "https://example.com/tool.tar.gz"
+custom_url_extract = true
+```
+
 ## 安装方式优先级
 
 在 `tools.toml` 中配置：
@@ -406,6 +518,8 @@ priority.package_manager = 30
 ```
 
 默认优先级（未配置时）：
+- custom_script: 5
+- custom_url: 10
 - github: 10
 - git_clone: 10
 - package_manager: 30

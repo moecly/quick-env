@@ -1,0 +1,84 @@
+name: Release
+
+on:
+  push:
+    tags:
+      - 'v*'
+
+permissions:
+  contents: write
+
+jobs:
+  release:
+    strategy:
+      fail-fast: false
+      matrix:
+        include:
+          - os: ubuntu-latest
+            target: linux_amd64
+            artifact: quick-env-linux-amd64
+          - os: macos-latest
+            target: macos_amd64
+            artifact: quick-env-macos-amd64
+          - os: macos-latest
+            target: macos_arm64
+            artifact: quick-env-macos-arm64
+          - os: windows-latest
+            target: windows_amd64
+            artifact: quick-env-windows-amd64.exe
+
+    runs-on: ${{ matrix.os }}
+
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+
+      - name: Set up Python
+        uses: actions/setup-python@v5
+        with:
+          python-version: '3.11'
+
+      - name: Install dependencies
+        run: pip install build
+
+      - name: Build package
+        run: python -m build
+
+      - name: Create standalone script
+        run: |
+          pip install -e .
+          cat > quick-env-${{ matrix.target }} << 'EOF'
+          #!/usr/bin/env python3
+          import sys
+          import os
+          from pathlib import Path
+
+          sys.path.insert(0, str(Path(__file__).parent / "src"))
+
+          if __name__ == "__main__":
+              from src.cli import main
+              main()
+          EOF
+          chmod +x quick-env-${{ matrix.target }}
+
+      - name: Upload artifacts
+        uses: actions/upload-artifact@v4
+        with:
+          name: ${{ matrix.artifact }}
+          path: quick-env-${{ matrix.target }}
+
+  create-release:
+    needs: release
+    runs-on: ubuntu-latest
+    steps:
+      - name: Download artifacts
+        uses: actions/download-artifact@v4
+
+      - name: Create Release
+        uses: softprops/action-gh-release@v1
+        with:
+          files: |
+            quick-env-*
+          generate_release_notes: true
+        env:
+          GITHUB_TOKEN: ${{ secrets.GITHUB_TOKEN }}

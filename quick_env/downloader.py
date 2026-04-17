@@ -136,11 +136,22 @@ def make_executable(file: Path) -> None:
     file.chmod(file.stat().st_mode | 0o111)
 
 
-def run_command(cmd: str, shell: bool = True, check: bool = True) -> subprocess.CompletedProcess:
-    return subprocess.run(cmd, shell=shell, check=check, capture_output=True, text=True)
+def run_command(
+    cmd: str, shell: bool = True, check: bool = True
+) -> subprocess.CompletedProcess:
+    return subprocess.run(
+        cmd,
+        shell=shell,
+        check=check,
+        capture_output=True,
+        text=True,
+        encoding="utf-8",
+        errors="replace",
+    )
 
 
 if __name__ == "__main__":
     import tempfile
+
     with tempfile.NamedTemporaryFile(suffix=".tar.gz", delete=False) as f:
         print(f"Test file: {f.name}")

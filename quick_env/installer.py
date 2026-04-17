@@ -23,6 +23,15 @@ from .downloader import download_file, extract_tarball, extract_zip, make_execut
 from .logger import log_install, log_uninstall
 
 
+def run_subprocess(*args, **kwargs) -> subprocess.CompletedProcess:
+    """标准化 subprocess.run 调用，处理编码问题"""
+    kwargs.setdefault("capture_output", True)
+    kwargs.setdefault("text", True)
+    kwargs.setdefault("encoding", "utf-8")
+    kwargs.setdefault("errors", "replace")
+    return run_subprocess(*args, **kwargs)
+
+
 @dataclass
 class InstallResult:
     success: bool
@@ -94,7 +103,7 @@ def get_latest_from_package_manager(tool: Tool) -> Optional[str]:
 
     try:
         if pm == "apt":
-            result = subprocess.run(
+            result = run_subprocess(
                 ["apt-cache", "policy", tool.package_name],
                 capture_output=True,
                 text=True,
@@ -108,7 +117,7 @@ def get_latest_from_package_manager(tool: Tool) -> Optional[str]:
                         return version
 
         elif pm == "brew":
-            result = subprocess.run(
+            result = run_subprocess(
                 ["brew", "info", tool.package_name, "--json"],
                 capture_output=True,
                 text=True,
@@ -124,7 +133,7 @@ def get_latest_from_package_manager(tool: Tool) -> Optional[str]:
                     ).get("bottle")
 
         elif pm == "dnf":
-            result = subprocess.run(
+            result = run_subprocess(
                 ["dnf", "list", tool.package_name, "--available"],
                 capture_output=True,
                 text=True,
@@ -138,7 +147,7 @@ def get_latest_from_package_manager(tool: Tool) -> Optional[str]:
                     return match.group(1)
 
         elif pm == "yum":
-            result = subprocess.run(
+            result = run_subprocess(
                 ["yum", "list", tool.package_name, "--available"],
                 capture_output=True,
                 text=True,
@@ -152,7 +161,7 @@ def get_latest_from_package_manager(tool: Tool) -> Optional[str]:
                     return match.group(1)
 
         elif pm == "pacman":
-            result = subprocess.run(
+            result = run_subprocess(
                 ["pacman", "-Si", tool.package_name],
                 capture_output=True,
                 text=True,
@@ -164,7 +173,7 @@ def get_latest_from_package_manager(tool: Tool) -> Optional[str]:
                     return match.group(1)
 
         elif pm == "zypper":
-            result = subprocess.run(
+            result = run_subprocess(
                 ["zypper", "info", tool.package_name],
                 capture_output=True,
                 text=True,
@@ -176,7 +185,7 @@ def get_latest_from_package_manager(tool: Tool) -> Optional[str]:
                     return match.group(1)
 
         elif pm == "winget":
-            result = subprocess.run(
+            result = run_subprocess(
                 ["winget", "list", "--id", tool.package_name],
                 capture_output=True,
                 text=True,
@@ -212,7 +221,7 @@ def get_version_info(tool: Tool) -> VersionInfo:
 
     if which_path:
         try:
-            result = subprocess.run(
+            result = run_subprocess(
                 [which_path, "--version"], capture_output=True, text=True, timeout=5
             )
             if result.returncode == 0:
@@ -353,7 +362,7 @@ class GitHubInstaller(Installer):
 
     def _get_binary_version(self, bin_path: Path) -> Optional[str]:
         try:
-            result = subprocess.run(
+            result = run_subprocess(
                 [str(bin_path), "--version"], capture_output=True, text=True
             )
             if result.returncode == 0:
@@ -370,7 +379,7 @@ class GitHubInstaller(Installer):
         if not dest or not dest.exists():
             return None
         try:
-            result = subprocess.run(
+            result = run_subprocess(
                 ["git", "-C", str(dest), "log", "-1", "--format=%ci"],
                 capture_output=True,
                 text=True,
@@ -520,7 +529,7 @@ class GitHubInstaller(Installer):
 
         if dest.exists():
             try:
-                subprocess.run(
+                run_subprocess(
                     ["git", "-C", str(dest), "pull"], check=True, capture_output=True
                 )
                 return InstallResult(True, f"Updated {tool.display_name}", self.name)
@@ -531,7 +540,7 @@ class GitHubInstaller(Installer):
 
         dest.parent.mkdir(parents=True, exist_ok=True)
         try:
-            subprocess.run(
+            run_subprocess(
                 ["git", "clone", f"https://github.com/{tool.config_repo}", str(dest)],
                 check=True,
                 capture_output=True,
@@ -606,7 +615,7 @@ class PackageManagerInstaller(Installer):
         if not which_path:
             return None
         try:
-            result = subprocess.run(
+            result = run_subprocess(
                 [cmd_name, "--version"], capture_output=True, text=True
             )
             if result.returncode == 0:
@@ -630,7 +639,7 @@ class PackageManagerInstaller(Installer):
             return InstallResult(False, "Package manager not configured", self.name)
 
         try:
-            result = subprocess.run(
+            result = run_subprocess(
                 cmd, shell=True, check=True, capture_output=True, text=True
             )
             version = self.get_version(tool)
@@ -672,7 +681,7 @@ class PackageManagerInstaller(Installer):
             return result
 
         try:
-            subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+            run_subprocess(cmd, shell=True, check=True, capture_output=True, text=True)
             result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
             log_uninstall(tool.display_name, True, result.message)
             return result
@@ -704,7 +713,7 @@ class DotfileInstaller(Installer):
 
     def _is_git_repo(self, path: Path) -> bool:
         try:
-            result = subprocess.run(
+            result = run_subprocess(
                 ["git", "-C", str(path), "rev-parse", "--git-dir"],
                 capture_output=True,
                 timeout=5,
@@ -718,7 +727,7 @@ class DotfileInstaller(Installer):
         if not dest.exists():
             return None
         try:
-            result = subprocess.run(
+            result = run_subprocess(
                 ["git", "-C", str(dest), "log", "-1", "--format=%ci"],
                 capture_output=True,
                 text=True,
@@ -732,7 +741,7 @@ class DotfileInstaller(Installer):
 
     def _get_current_branch(self, repo_path: Path) -> Optional[str]:
         try:
-            result = subprocess.run(
+            result = run_subprocess(
                 ["git", "-C", str(repo_path), "rev-parse", "--abbrev-ref", "HEAD"],
                 capture_output=True,
                 text=True,
@@ -746,7 +755,7 @@ class DotfileInstaller(Installer):
 
     def _is_git_dirty(self, repo_path: Path) -> bool:
         try:
-            result = subprocess.run(
+            result = run_subprocess(
                 ["git", "-C", str(repo_path), "status", "--porcelain"],
                 capture_output=True,
                 text=True,
@@ -837,7 +846,7 @@ class DotfileInstaller(Installer):
         if dest.exists():
             if self._is_git_repo(dest):
                 try:
-                    subprocess.run(
+                    run_subprocess(
                         ["git", "-C", str(dest), "pull"],
                         check=True,
                         capture_output=True,
@@ -859,7 +868,7 @@ class DotfileInstaller(Installer):
             branch_args = (
                 ["--branch", tool.config_branch] if tool.config_branch != "main" else []
             )
-            subprocess.run(
+            run_subprocess(
                 ["git", "clone"]
                 + branch_args
                 + [f"https://github.com/{tool.config_repo}", str(dest)],
@@ -1023,7 +1032,7 @@ class CustomScriptInstaller(Installer):
     def get_version(self, tool: Tool) -> Optional[str]:
         if tool.custom_version_cmd:
             try:
-                result = subprocess.run(
+                result = run_subprocess(
                     tool.custom_version_cmd,
                     shell=True,
                     capture_output=True,
@@ -1048,7 +1057,7 @@ class CustomScriptInstaller(Installer):
             log_install(
                 tool.display_name, self.name, "Installing with custom script..."
             )
-            result = subprocess.run(
+            result = run_subprocess(
                 tool.custom_script,
                 shell=True,
                 capture_output=True,
@@ -1105,7 +1114,7 @@ class CustomURLInstaller(Installer):
     def get_version(self, tool: Tool) -> Optional[str]:
         if tool.custom_version_cmd:
             try:
-                result = subprocess.run(
+                result = run_subprocess(
                     tool.custom_version_cmd,
                     shell=True,
                     capture_output=True,

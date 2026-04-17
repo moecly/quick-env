@@ -481,6 +481,8 @@ def doctor(
                             [cmd_name, "--version"],
                             capture_output=True,
                             text=True,
+                            encoding="utf-8",
+                            errors="replace",
                             timeout=5,
                         )
                         if result.returncode == 0:
@@ -587,6 +589,8 @@ def doctor(
                             ],
                             capture_output=True,
                             text=True,
+                            encoding="utf-8",
+                            errors="replace",
                             timeout=5,
                         )
                         if result.returncode == 0:
@@ -601,6 +605,8 @@ def doctor(
                             ["git", "-C", str(repo_path), "status", "--porcelain"],
                             capture_output=True,
                             text=True,
+                            encoding="utf-8",
+                            errors="replace",
                             timeout=5,
                         )
                         is_dirty = bool(result.stdout.strip())

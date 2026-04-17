@@ -1,6 +1,8 @@
 """Tests for installer classes."""
 
 import unittest
+import tempfile
+import os
 from unittest.mock import patch, MagicMock
 from pathlib import Path
 import tomllib
@@ -133,6 +135,42 @@ class TestGitHubInstaller(unittest.TestCase):
         with patch("quick_env.installer.shutil.which") as mock_which:
             mock_which.return_value = None
             self.assertFalse(self.installer.is_available())
+
+    def test_is_installed_valid_symlink(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bin_dir = Path(tmpdir) / "bin"
+            bin_dir.mkdir()
+            tools_dir = Path(tmpdir) / "tools" / "test-tool_1.0.0"
+            tools_dir.mkdir(parents=True)
+            (tools_dir / "test-tool").touch()
+
+            link = bin_dir / "test-tool"
+            os.symlink(tools_dir / "test-tool", link)
+
+            bin_path = bin_dir / "test-tool"
+            self.assertTrue(bin_path.exists())
+            self.assertTrue(self.installer.platform.is_symlink_valid(bin_path))
+
+    def test_is_installed_broken_symlink(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bin_dir = Path(tmpdir) / "bin"
+            bin_dir.mkdir()
+
+            link = bin_dir / "test-tool"
+            target = bin_dir / "missing-target"
+            os.symlink(target, link)
+
+            bin_path = bin_dir / "test-tool"
+            self.assertTrue(bin_path.is_symlink())
+            self.assertFalse(self.installer.platform.is_symlink_valid(bin_path))
+
+    def test_is_installed_no_bin_entry(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            bin_dir = Path(tmpdir) / "bin"
+            bin_dir.mkdir()
+
+            bin_path = bin_dir / "test-tool"
+            self.assertFalse(bin_path.exists())
 
 
 class TestPackageManagerInstaller(unittest.TestCase):

@@ -348,7 +348,8 @@ class GitHubInstaller(Installer):
             config_path = self._get_config_dest(tool)
             return config_path.exists() if config_path else False
         bin_dir = Path(self.paths["quick_env_bin"])
-        return self.platform.is_bin_installed(bin_dir, tool.name)
+        bin_path = bin_dir / self.platform.bin_name(tool.name)
+        return bin_path.exists() and self.platform.is_symlink_valid(bin_path)
 
     def get_version(self, tool: Tool) -> Optional[str]:
         if tool.config_repo:
@@ -1121,9 +1122,7 @@ class CustomURLInstaller(Installer):
         if not tool.custom_url:
             return False
         bin_path = self._get_bin_path(tool)
-        return bin_path.exists() or self.platform.is_bin_installed(
-            Path(self.paths["quick_env_bin"]), tool.name
-        )
+        return bin_path.exists() and self.platform.is_symlink_valid(bin_path)
 
     def get_version(self, tool: Tool) -> Optional[str]:
         if tool.custom_version_cmd:

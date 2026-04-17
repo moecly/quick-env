@@ -36,7 +36,7 @@
 
 ### 待实现
 
-- [ ] 增强 is_installed 检测逻辑：检查软链接目标是否有效，避免"假安装"状态
+- [x] 增强 is_installed 检测逻辑：检查软链接目标是否有效，避免"假安装"状态
 - [x] 系统处理统一到 Platform 类：封装 shutil.which、os.symlink、shutil.rmtree 等
 - [x] 安装方式平台支持配置（supported_on 字段）
 - [x] 平台差异化优先级配置（priority.linux.github 等）
@@ -88,6 +88,16 @@ tests/
 | DotfileInstaller | glob 匹配、目录结构、冲突处理测试 |
 | 并行安装 | 并发下载、错误处理测试 |
 | doctor 增强 | 7 层诊断测试 |
+
+### 已完成测试覆盖
+
+| 功能 | 测试内容 |
+|------|----------|
+| Tool 定义 | 字段解析、平台差异化、优先级 |
+| is_installed | 软链接有效性检查（valid/broken/missing） |
+| Platform | 平台检测、软链接操作 |
+| GitHub API | API 调用、版本解析 |
+| Downloader | 下载、解压、缓存管理 |
 
 ## doctor 命令详细设计
 

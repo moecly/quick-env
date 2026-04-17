@@ -92,7 +92,6 @@ class TestGetEnvPaths(unittest.TestCase):
         paths = get_env_paths()
         self.assertIsInstance(paths, dict)
         self.assertIn("home", paths)
-        self.assertIn("bin_home", paths)
         self.assertIn("quick_env_home", paths)
         self.assertIn("quick_env_bin", paths)
         self.assertIn("quick_env_config", paths)

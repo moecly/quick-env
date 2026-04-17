@@ -139,7 +139,6 @@ def get_env_paths() -> dict[str, str]:
     home = os.path.expanduser("~")
     return {
         "home": home,
-        "bin_home": os.environ.get("XDG_BIN_HOME", os.path.join(home, ".local", "bin")),
         "quick_env_home": os.path.join(home, ".quick-env"),
         "quick_env_bin": os.path.join(home, ".quick-env", "bin"),
         "quick_env_cache": os.path.join(home, ".quick-env", "cache"),

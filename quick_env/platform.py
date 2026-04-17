@@ -38,19 +38,21 @@ class Platform:
 
 PLATFORM_MAP = {
     # Linux
-    ("Linux", "x86_64"): ("linux", "amd64"),
+    ("Linux", "x86_64"): ("linux", "x86_64"),
     ("Linux", "aarch64"): ("linux", "arm64"),
-    ("Linux", "armv7l"): ("linux", "arm"),
+    ("Linux", "armv7l"): ("linux", "armv7"),
+    ("Linux", "arm64"): ("linux", "arm64"),
+    ("Linux", "i686"): ("linux", "i686"),
     # macOS
-    ("Darwin", "x86_64"): ("macos", "amd64"),
-    ("Darwin", "arm64"): ("macos", "arm64"),
+    ("Darwin", "x86_64"): ("darwin", "x86_64"),
+    ("Darwin", "arm64"): ("darwin", "arm64"),
     # Git Bash / MinGW on Windows
-    ("MINGW64_NT", "x86_64"): ("windows", "amd64"),
-    ("MSYS_NT", "x86_64"): ("windows", "amd64"),
+    ("MINGW64_NT", "x86_64"): ("windows", "x86_64"),
+    ("MSYS_NT", "x86_64"): ("windows", "x86_64"),
     ("MINGW64_NT", "arm64"): ("windows", "arm64"),
     # Native Windows (via CI)
-    ("Windows", "AMD64"): ("windows", "amd64"),
-    ("Windows", "x86_64"): ("windows", "amd64"),
+    ("Windows", "AMD64"): ("windows", "x86_64"),
+    ("Windows", "x86_64"): ("windows", "x86_64"),
     ("Windows", "arm64"): ("windows", "arm64"),
 }
 
@@ -61,16 +63,10 @@ def detect_platform() -> Platform:
 
     if system == "Windows":
         arch = arch.lower()
-    elif system == "Linux":
-        arch = platform.machine()
-        if arch == "x86_64":
+        if arch == "amd64":
             arch = "x86_64"
-        elif arch == "aarch64" or arch == "arm64":
-            arch = "aarch64"
-        elif arch.startswith("armv7"):
-            arch = "armv7l"
-        elif arch == "i686" or arch == "i386":
-            arch = "i686"
+        elif arch == "arm64":
+            arch = "arm64"
 
     key = (system, arch)
     platform_name, arch_name = PLATFORM_MAP.get(key, (system.lower(), arch))

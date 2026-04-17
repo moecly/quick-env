@@ -4,9 +4,6 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
-DEFAULT_COMMANDS: dict[str, str] = field(default_factory=lambda: {})
-
-
 @dataclass
 class Tool:
     name: str
@@ -15,7 +12,7 @@ class Tool:
     package_name: Optional[str] = None
     platform_commands: dict[str, str] = field(default_factory=dict)
     repo: Optional[str] = None
-    asset_pattern: Optional[str] = None
+    asset_patterns: dict[str, str] = field(default_factory=dict)
     config_repo: Optional[str] = None
     config_link: Optional[str] = None
     aliases: list[str] = field(default_factory=list)
@@ -23,6 +20,13 @@ class Tool:
 
     def matches(self, name: str) -> bool:
         return name == self.name or name in self.aliases
+
+    def get_asset_pattern(self, platform: str) -> str | None:
+        if platform in self.asset_patterns:
+            return self.asset_patterns[platform]
+        if "default" in self.asset_patterns:
+            return self.asset_patterns["default"]
+        return None
 
 
 TOOLS = {
@@ -32,7 +36,17 @@ TOOLS = {
         installable_by=["github"],
         package_name="lazygit",
         repo="jesseduffield/lazygit",
-        asset_pattern="lazygit_{version}_{platform}_{arch}.tar.gz",
+        asset_patterns={
+            "linux_x86_64": "lazygit_{version}_linux_x86_64.tar.gz",
+            "linux_arm64": "lazygit_{version}_linux_arm64.tar.gz",
+            "linux_armv7": "lazygit_{version}_linux_armv6.tar.gz",
+            "linux_i686": "lazygit_{version}_linux_32-bit.tar.gz",
+            "darwin_x86_64": "lazygit_{version}_darwin_x86_64.tar.gz",
+            "darwin_arm64": "lazygit_{version}_darwin_arm64.tar.gz",
+            "windows_x86_64": "lazygit_{version}_windows_x86_64.zip",
+            "windows_arm64": "lazygit_{version}_windows_arm64.zip",
+            "windows_i686": "lazygit_{version}_windows_32-bit.zip",
+        },
         aliases=["lg"],
         description="Terminal UI for git commands",
     ),
@@ -49,7 +63,15 @@ TOOLS = {
             "default": "fd",
         },
         repo="sharkdp/fd",
-        asset_pattern="fd-{version}-{platform}-{arch}.tar.gz",
+        asset_patterns={
+            "linux_x86_64": "fd-v{version}-x86_64-unknown-linux-gnu.tar.gz",
+            "linux_arm64": "fd-v{version}-aarch64-unknown-linux-gnu.tar.gz",
+            "linux_armv7": "fd-v{version}-arm-unknown-linux-gnueabihf.tar.gz",
+            "linux_i686": "fd-v{version}-i686-unknown-linux-gnu.tar.gz",
+            "darwin_arm64": "fd-v{version}-aarch64-apple-darwin.tar.gz",
+            "windows_x86_64": "fd-v{version}-x86_64-pc-windows-gnu.zip",
+            "windows_arm64": "fd-v{version}-aarch64-pc-windows-msvc.zip",
+        },
         description="Simple, fast and user-friendly alternative to find",
     ),
     "rg": Tool(
@@ -58,7 +80,16 @@ TOOLS = {
         installable_by=["github"],
         package_name="ripgrep",
         repo="BurntSushi/ripgrep",
-        asset_pattern="ripgrep-{version}-{platform}-{arch}.tar.gz",
+        asset_patterns={
+            "linux_x86_64": "ripgrep-{version}-x86_64-unknown-linux-musl.tar.gz",
+            "linux_arm64": "ripgrep-{version}-aarch64-unknown-linux-gnu.tar.gz",
+            "linux_armv7": "ripgrep-{version}-armv7-unknown-linux-gnueabihf.tar.gz",
+            "linux_i686": "ripgrep-{version}-i686-unknown-linux-gnu.tar.gz",
+            "darwin_x86_64": "ripgrep-{version}-x86_64-apple-darwin.tar.gz",
+            "darwin_arm64": "ripgrep-{version}-aarch64-apple-darwin.tar.gz",
+            "windows_x86_64": "ripgrep-{version}-x86_64-pc-windows-gnu.zip",
+            "windows_arm64": "ripgrep-{version}-aarch64-pc-windows-msvc.zip",
+        },
         aliases=["ripgrep"],
         description="Ultra fast grep alternative",
     ),
@@ -68,7 +99,12 @@ TOOLS = {
         installable_by=["github", "package_manager"],
         package_name="neovim",
         repo="neovim/neovim",
-        asset_pattern="nvim-{platform}{arch}.tar.gz",
+        asset_patterns={
+            "linux_x86_64": "nvim-linux-x86_64.tar.gz",
+            "linux_arm64": "nvim-linux-arm64.tar.gz",
+            "darwin_x86_64": "nvim-macos-x86_64.tar.gz",
+            "darwin_arm64": "nvim-macos-arm64.tar.gz",
+        },
         description="Hyperextensible Vim-based text editor",
     ),
     "tmux": Tool(
@@ -77,7 +113,6 @@ TOOLS = {
         installable_by=["package_manager"],
         package_name="tmux",
         repo="tmux/tmux",
-        asset_pattern="tmux-{version}.tar.gz",
         description="Terminal multiplexer",
     ),
     "tmux-config": Tool(

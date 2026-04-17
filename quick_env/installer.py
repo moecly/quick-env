@@ -302,7 +302,7 @@ class GitHubInstaller(Installer):
     def install(self, tool: Tool) -> InstallResult:
         if tool.config_repo:
             return self._install_config(tool)
-        if not tool.repo or not tool.asset_pattern:
+        if not tool.repo or not tool.asset_patterns:
             return InstallResult(False, "Tool does not support GitHub installation", self.name)
         return self._install_binary(tool)
 
@@ -312,7 +312,13 @@ class GitHubInstaller(Installer):
         except Exception as e:
             return InstallResult(False, f"Failed to fetch release: {e}", self.name)
 
-        asset = self.api.find_asset(release, tool.asset_pattern, self.platform.platform_name, self.platform.arch_name)
+        if tool.asset_patterns:
+            asset = self.api.find_asset_by_platform(
+                release, tool.asset_patterns, self.platform.platform_name, self.platform.arch_name
+            )
+        else:
+            return InstallResult(False, "No asset patterns defined", self.name)
+
         if not asset:
             return InstallResult(False, f"No asset found for {self.platform.platform_name}/{self.platform.arch_name}", self.name)
 

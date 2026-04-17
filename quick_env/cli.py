@@ -183,40 +183,53 @@ def list_tools(
 
 @app.command()
 def info(
-    tool_name: str = typer.Argument(..., help="Tool name"),
+    tools: List[str] = typer.Argument(None, help="Tool name(s). Use 'all' to show all tools."),
 ):
     """Show information about a tool."""
+    show_all = tools is not None and "all" in tools
+    tools_to_show = tools if tools and not show_all else None
 
-    tool = get_tool(tool_name)
-    if not tool:
-        console.print(f"[red]Unknown tool: {tool_name}[/red]")
-        raise typer.Exit(1)
+    all_tools = get_all_tools()
+    if tools_to_show:
+        tools_dict = {k: all_tools[k] for k in tools_to_show if k in all_tools}
+    else:
+        tools_dict = all_tools
 
-    console.print(f"[bold cyan]{tool.display_name}[/bold cyan]")
-    console.print(f"Description: {tool.description}")
-    console.print(f"Supported methods: {', '.join(tool.installable_by)}")
+    for tool_name, tool in tools_dict.items():
+        console.print(f"[bold cyan]{'=' * 40}[/bold cyan]")
+        console.print(f"[bold]{tool.display_name}[/bold]")
 
-    if tool.package_name:
-        console.print(f"Package name: {tool.package_name}")
-    if tool.repo:
-        console.print(f"GitHub repo: {tool.repo}")
+        detection = InstallerFactory.detect_tool(tool)
+        version_info = get_version_info(tool)
 
-    detection = InstallerFactory.detect_tool(tool)
-    version_info = get_version_info(tool)
+        console.print(f"Description: {tool.description}")
+        console.print(f"Supported methods: {', '.join(tool.installable_by)}")
 
-    if detection.installed:
-        console.print(f"Status: [green]Installed[/green]")
-        console.print(f"Source: {detection.current_source or detection.sources[0].name}")
+        if tool.package_name:
+            console.print(f"Package name: {tool.package_name}")
+        if tool.repo:
+            console.print(f"GitHub repo: {tool.repo}")
+
+        status_icon = "[green]✓[/green]" if detection.installed else "[red]✗[/red]"
+        status_text = "[green]Installed[/green]" if detection.installed else "[yellow]Not installed[/yellow]"
+        console.print(f"Status: {status_icon} {status_text}")
+
+        if detection.installed:
+            console.print(f"Source: {detection.current_source or detection.sources[0].name if detection.sources else '-'}")
+
         if version_info.current:
             console.print(f"Current version: {version_info.current}")
         if version_info.latest:
-            console.print(f"Latest version: {version_info.latest} (via {version_info.source})")
             if version_info.has_update:
+                console.print(f"Latest version: {version_info.latest} (via {version_info.source})")
                 console.print(f"[yellow]Update available![/yellow]")
             else:
+                console.print(f"Latest version: {version_info.latest} (via {version_info.source})")
                 console.print(f"[green]Up to date[/green]")
-    else:
-        console.print("[yellow]Not installed[/yellow]")
+        elif not detection.installed:
+            console.print(f"Latest version: -")
+
+        console.print()
 
 
 @app.command()

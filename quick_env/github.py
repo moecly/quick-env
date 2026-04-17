@@ -115,17 +115,47 @@ class GitHubAPI:
         )
 
     def find_asset(self, release: GitHubRelease, pattern: str, platform_name: str, arch_name: str) -> Optional[GitHubAsset]:
-        pattern = pattern.replace("{version}", release.tag_name.lstrip("v"))
+        version = release.tag_name.lstrip("v")
+        pattern = pattern.replace("{version}", version)
         pattern = pattern.replace("{platform}", platform_name)
         pattern = pattern.replace("{arch}", arch_name)
-        pattern = re.escape(pattern).replace(re.escape("{arch}"), r"(?P<arch>[^/]+)")
-        pattern = re.escape(pattern).replace(re.escape("{platform}"), r"(?P<platform>[^/]+)")
-        pattern = pattern.replace(r"\?\P<arch>", "?P<arch>")
 
         for asset in release.assets:
-            if re.match(pattern, asset.name):
+            if self._match_pattern(asset.name, pattern):
                 return asset
         return None
+
+    def find_asset_by_platform(self, release: GitHubRelease, patterns: dict[str, str], platform_name: str, arch_name: str) -> Optional[GitHubAsset]:
+        version = release.tag_name.lstrip("v")
+        platform_key = f"{platform_name}_{arch_name}"
+
+        if platform_key in patterns:
+            pattern = patterns[platform_key].replace("{version}", version)
+            for asset in release.assets:
+                if self._match_pattern(asset.name, pattern):
+                    return asset
+
+        fallback_patterns = [
+            f"{platform_name}_x86_64",
+            f"{platform_name}_amd64",
+            f"{platform_name}_arm64",
+        ]
+        for key in fallback_patterns:
+            if key in patterns:
+                pattern = patterns[key].replace("{version}", version)
+                for asset in release.assets:
+                    if self._match_pattern(asset.name, pattern):
+                        return asset
+
+        return None
+
+    def _match_pattern(self, name: str, pattern: str) -> bool:
+        pattern = re.escape(pattern)
+        pattern = pattern.replace(r"\{version\}", r"[^/]+")
+        pattern = pattern.replace(r"\{platform\}", r"[^/]+")
+        pattern = pattern.replace(r"\{arch\}", r"[^/]+")
+        pattern = f"^{pattern}$"
+        return bool(re.match(pattern, name))
 
 
 def compare_versions(v1: str, v2: str) -> int:

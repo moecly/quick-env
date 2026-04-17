@@ -105,6 +105,7 @@ class Config:
                 description=tool_data.get("description", ""),
                 installable_by=tool_data.get("installable_by", []),
                 priority=tool_data.get("priority", {}),
+                supported_on=tool_data.get("supported_on", {}),
                 package_name=tool_data.get("package_name"),
                 package_manager_commands=tool_data.get("package_manager_commands", {}),
                 repo=tool_data.get("repo"),

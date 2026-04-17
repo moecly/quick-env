@@ -1303,17 +1303,32 @@ class InstallerFactory:
 
     @classmethod
     def get_best_installer(cls, tool: Tool) -> Optional[Installer]:
+        from .platform import detect_platform
+
+        platform = detect_platform()
+        platform_key = platform.platform_name
+
+        # 检查工具是否支持当前平台
+        if not tool.is_platform_supported(platform_key):
+            return None
+
         if tool.is_dotfile():
             return cls.get_installer("dotfile")
 
         if tool.custom_script:
-            return cls.get_installer("custom_script")
+            if tool.is_installer_supported(platform_key, "custom_script"):
+                return cls.get_installer("custom_script")
+            return None
 
         available = []
         for name in tool.installable_by:
+            # 检查安装方式是否在当前平台上支持
+            if not tool.is_installer_supported(platform_key, name):
+                continue
+
             installer = cls.get_installer(name)
             if installer and installer.is_available():
-                priority = tool.get_priority(name, installer.priority)
+                priority = tool.get_priority(platform_key, name, installer.priority)
                 available.append((installer, priority))
 
         available.sort(key=lambda x: x[1])

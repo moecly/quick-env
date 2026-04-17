@@ -81,10 +81,9 @@ type = "binary"
 name = "nvim"
 display_name = "Neovim"
 description = "Hyperextensible Vim-based text editor"
-installable_by = ["github", "package_manager", "custom_url"]
+installable_by = ["github", "package_manager"]
 priority.github = 10
 priority.package_manager = 30
-priority.custom_url = 20
 package_name = "neovim"
 repo = "neovim/neovim"
 aliases = ["neovim"]
@@ -94,18 +93,25 @@ linux_x86_64 = "nvim-linux-x86_64.tar.gz"
 linux_arm64 = "nvim-linux-arm64.tar.gz"
 darwin_x86_64 = "nvim-macos-x86_64.tar.gz"
 darwin_arm64 = "nvim-macos-arm64.tar.gz"
-
-[tools.nvim.custom_url]
-windows_x86_64 = "https://github.com/neovim/neovim/releases/download/v0.12.1/nvim-win64.zip"
+windows_x86_64 = "nvim-win64.zip"
+windows_arm64 = "nvim-win-arm64.zip"
 
 [tools.tmux]
 type = "binary"
 name = "tmux"
 display_name = "Tmux"
 description = "Terminal multiplexer"
-installable_by = ["package_manager"]
+installable_by = ["package_manager", "custom_url"]
 package_name = "tmux"
 repo = "tmux/tmux"
+supported_on.linux = true
+supported_on.macos = true
+supported_on.windows = false
+priority.package_manager = 10
+priority.custom_url = 20
+
+[tools.tmux.custom_url]
+windows_x86_64 = "https://github.com/moecly/tmux_for_windows/raw/master/tmux_for_git-bash.zip"
 aliases = []
 
 # ==================== Dotfiles ====================

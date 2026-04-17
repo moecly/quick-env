@@ -181,9 +181,9 @@ class TestToolPriority(unittest.TestCase):
         self.assertEqual(tool.priority.get("github"), 10)
         self.assertEqual(tool.priority.get("package_manager"), 30)
 
-    def test_get_priority_default(self):
+    def test_get_priority_with_platform(self):
         tool = self.config.get_tool("tmux")
-        self.assertEqual(tool.get_priority("github"), 100)
+        self.assertEqual(tool.get_priority("linux", "package_manager"), 10)
 
 
 class TestLinkConfigPlatform(unittest.TestCase):

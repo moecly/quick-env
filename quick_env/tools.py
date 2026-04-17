@@ -57,6 +57,7 @@ class Tool:
     display_name: str = ""
     installable_by: list[str] = field(default_factory=list)
     priority: dict[str, int] = field(default_factory=dict)
+    supported_on: dict[str, bool] = field(default_factory=dict)
     package_name: Optional[str] = None
     package_manager_commands: dict[str, str] = field(default_factory=dict)
     repo: Optional[str] = None
@@ -95,8 +96,31 @@ class Tool:
             return None
         return self.custom_url
 
-    def get_priority(self, installer_name: str, default: int = 100) -> int:
+    def get_priority(
+        self, platform: str, installer_name: str, default: int = 100
+    ) -> int:
+        """根据平台和安装方式获取优先级"""
+        key = f"{platform}.{installer_name}"
+        if key in self.priority:
+            return self.priority[key]
         return self.priority.get(installer_name, default)
+
+    def is_platform_supported(self, platform: str) -> bool:
+        """检查工具在平台上是否支持（默认 True）"""
+        if not self.supported_on:
+            return True
+        return self.supported_on.get(platform, True)
+
+    def is_installer_supported(self, platform: str, installer_name: str) -> bool:
+        """检查安装方式在平台上是否支持"""
+        if not self.supported_on:
+            return True
+        # 先检查安装方式+平台
+        key = f"{installer_name}.{platform}"
+        if key in self.supported_on:
+            return self.supported_on[key]
+        # 再检查平台
+        return self.supported_on.get(platform, True)
 
     def is_binary(self) -> bool:
         return self.type == "binary"

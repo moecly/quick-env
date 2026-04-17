@@ -53,16 +53,24 @@ class TestToolDefinition(unittest.TestCase):
     def test_tmux_config_definition(self):
         tool = self.tools["tmux-config"]
         self.assertEqual(tool.name, "tmux-config")
-        self.assertIn("git_clone", tool.installable_by)
+        self.assertEqual(tool.type, "dotfile")
+        self.assertIn("dotfile", tool.installable_by)
         self.assertEqual(tool.config_repo, "moecly/tmux_config")
-        self.assertEqual(tool.config_link, "~/.tmux.conf")
+        self.assertEqual(tool.config_branch, "main")
+        self.assertEqual(len(tool.links), 1)
+        self.assertEqual(tool.links[0].glob, ".tmux.conf")
+        self.assertEqual(tool.links[0].to, "~/.tmux.conf")
 
     def test_nvim_config_definition(self):
         tool = self.tools["nvim-config"]
         self.assertEqual(tool.name, "nvim-config")
-        self.assertIn("git_clone", tool.installable_by)
+        self.assertEqual(tool.type, "dotfile")
+        self.assertIn("dotfile", tool.installable_by)
         self.assertEqual(tool.config_repo, "moecly/nvim-config")
-        self.assertEqual(tool.config_link, "~/.config/nvim")
+        self.assertEqual(tool.config_branch, "main")
+        self.assertEqual(len(tool.links), 1)
+        self.assertEqual(tool.links[0].glob, "nvim")
+        self.assertEqual(tool.links[0].to, "~/.config/nvim")
 
 
 class TestGetTool(unittest.TestCase):
@@ -107,21 +115,26 @@ class TestToolCategories(unittest.TestCase):
 
     @property
     def binary_tools(self):
-        return {name for name, tool in self.tools.items() if "github" in tool.installable_by and not tool.config_repo}
+        return {name for name, tool in self.tools.items() if tool.is_binary()}
 
     @property
     def package_manager_tools(self):
-        return {name for name, tool in self.tools.items() if "package_manager" in tool.installable_by}
+        return {
+            name
+            for name, tool in self.tools.items()
+            if "package_manager" in tool.installable_by
+        }
 
     @property
-    def git_clone_tools(self):
-        return {name for name, tool in self.tools.items() if "git_clone" in tool.installable_by}
+    def dotfile_tools(self):
+        return {name for name, tool in self.tools.items() if tool.is_dotfile()}
 
     def test_binary_tools(self):
         self.assertIn("lazygit", self.binary_tools)
         self.assertIn("fd", self.binary_tools)
         self.assertIn("rg", self.binary_tools)
         self.assertIn("nvim", self.binary_tools)
+        self.assertIn("tmux", self.binary_tools)
 
     def test_package_manager_tools(self):
         self.assertIn("tmux", self.package_manager_tools)
@@ -130,9 +143,9 @@ class TestToolCategories(unittest.TestCase):
         self.assertIn("rg", self.package_manager_tools)
         self.assertIn("nvim", self.package_manager_tools)
 
-    def test_git_clone_tools(self):
-        self.assertIn("tmux-config", self.git_clone_tools)
-        self.assertIn("nvim-config", self.git_clone_tools)
+    def test_dotfile_tools(self):
+        self.assertIn("tmux-config", self.dotfile_tools)
+        self.assertIn("nvim-config", self.dotfile_tools)
 
 
 class TestToolMatches(unittest.TestCase):

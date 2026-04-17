@@ -7,7 +7,7 @@ import tomllib
 from quick_env.installer import (
     GitHubInstaller,
     PackageManagerInstaller,
-    GitCloneInstaller,
+    DotfileInstaller,
     InstallerFactory,
     InstallResult,
     SourceInfo,
@@ -73,7 +73,9 @@ class TestToolDetection(unittest.TestCase):
         detection.installed = True
         detection.sources = [
             SourceInfo(name="system", path="/usr/bin/tmux", version="3.3a"),
-            SourceInfo(name="github", path="/home/user/.quick-env/bin/tmux", version="3.5"),
+            SourceInfo(
+                name="github", path="/home/user/.quick-env/bin/tmux", version="3.5"
+            ),
         ]
         detection.current_source = "system"
 
@@ -108,7 +110,9 @@ class TestToolDetection(unittest.TestCase):
     def test_current_version(self):
         detection = ToolDetection(tool_name="tmux")
         detection.sources = [
-            SourceInfo(name="system", path="/usr/bin/tmux", version="3.3a", is_current=True),
+            SourceInfo(
+                name="system", path="/usr/bin/tmux", version="3.3a", is_current=True
+            ),
         ]
         self.assertEqual(detection.current_version, "3.3a")
 
@@ -138,9 +142,9 @@ class TestPackageManagerInstaller(unittest.TestCase):
         self.assertTrue(self.installer.is_available())
 
 
-class TestGitCloneInstaller(unittest.TestCase):
+class TestDotfileInstaller(unittest.TestCase):
     def setUp(self):
-        self.installer = GitCloneInstaller()
+        self.installer = DotfileInstaller()
 
     def test_is_available_with_git(self):
         with patch("quick_env.installer.shutil.which") as mock_which:
@@ -167,7 +171,12 @@ class TestInstallerFactory(unittest.TestCase):
     def test_get_installer_git_clone(self):
         installer = InstallerFactory.get_installer("git_clone")
         self.assertIsNotNone(installer)
-        self.assertEqual(installer.name, "git_clone")
+        self.assertEqual(installer.name, "dotfile")
+
+    def test_get_installer_dotfile(self):
+        installer = InstallerFactory.get_installer("dotfile")
+        self.assertIsNotNone(installer)
+        self.assertEqual(installer.name, "dotfile")
 
     def test_get_installer_invalid(self):
         installer = InstallerFactory.get_installer("invalid")
@@ -185,9 +194,10 @@ class TestInstallerFactory(unittest.TestCase):
         config = load_project_config()
         tool = config.get_tool("tmux-config")
         self.assertIsNotNone(tool)
+        self.assertTrue(tool.is_dotfile())
         installer = InstallerFactory.get_best_installer(tool)
         self.assertIsNotNone(installer)
-        self.assertEqual(installer.name, "git_clone")
+        self.assertEqual(installer.name, "dotfile")
 
     def test_detect_tool_returns_detection(self):
         config = load_project_config()
@@ -196,6 +206,15 @@ class TestInstallerFactory(unittest.TestCase):
         detection = InstallerFactory.detect_tool(tool)
         self.assertIsInstance(detection, ToolDetection)
         self.assertEqual(detection.tool_name, "lazygit")
+
+    def test_get_best_installer_uses_type_for_dotfiles(self):
+        config = load_project_config()
+        tool = config.get_tool("nvim-config")
+        self.assertIsNotNone(tool)
+        self.assertEqual(tool.type, "dotfile")
+        installer = InstallerFactory.get_best_installer(tool)
+        self.assertIsNotNone(installer)
+        self.assertEqual(installer.name, "dotfile")
 
 
 if __name__ == "__main__":

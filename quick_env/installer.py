@@ -1,5 +1,6 @@
 """Installers for different installation methods."""
 
+import fnmatch
 import os
 import re
 import shutil
@@ -10,7 +11,13 @@ from pathlib import Path
 from typing import Optional, List
 
 from .github import GitHubAPI, GitHubRelease
-from .platform import Platform, detect_platform, detect_package_manager, PACKAGE_MANAGER_COMMANDS, get_env_paths
+from .platform import (
+    Platform,
+    detect_platform,
+    detect_package_manager,
+    PACKAGE_MANAGER_COMMANDS,
+    get_env_paths,
+)
 from .tools import Tool
 from .downloader import download_file, extract_tarball, extract_zip, make_executable
 from .logger import log_install, log_uninstall
@@ -73,7 +80,9 @@ def get_command_name(tool: Tool) -> str:
     """根据当前平台获取实际命令名"""
     pm = detect_package_manager()
     if pm and tool.package_manager_commands:
-        return tool.package_manager_commands.get(pm, tool.package_manager_commands.get("default", tool.name))
+        return tool.package_manager_commands.get(
+            pm, tool.package_manager_commands.get("default", tool.name)
+        )
     return tool.name
 
 
@@ -87,7 +96,9 @@ def get_latest_from_package_manager(tool: Tool) -> Optional[str]:
         if pm == "apt":
             result = subprocess.run(
                 ["apt-cache", "policy", tool.package_name],
-                capture_output=True, text=True, timeout=10
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if result.returncode == 0:
                 match = re.search(r"Candidate:\s*(\S+)", result.stdout)
@@ -99,38 +110,53 @@ def get_latest_from_package_manager(tool: Tool) -> Optional[str]:
         elif pm == "brew":
             result = subprocess.run(
                 ["brew", "info", tool.package_name, "--json"],
-                capture_output=True, text=True, timeout=10
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if result.returncode == 0:
                 import json
+
                 data = json.loads(result.stdout)
                 if data:
-                    return data[0].get("versions", {}).get("stable") or data[0].get("versions", {}).get("bottle")
+                    return data[0].get("versions", {}).get("stable") or data[0].get(
+                        "versions", {}
+                    ).get("bottle")
 
         elif pm == "dnf":
             result = subprocess.run(
                 ["dnf", "list", tool.package_name, "--available"],
-                capture_output=True, text=True, timeout=10
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if result.returncode == 0:
-                match = re.search(rf"{re.escape(tool.package_name)}.*?\s+(\S+)", result.stdout)
+                match = re.search(
+                    rf"{re.escape(tool.package_name)}.*?\s+(\S+)", result.stdout
+                )
                 if match:
                     return match.group(1)
 
         elif pm == "yum":
             result = subprocess.run(
                 ["yum", "list", tool.package_name, "--available"],
-                capture_output=True, text=True, timeout=10
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if result.returncode == 0:
-                match = re.search(rf"{re.escape(tool.package_name)}.*?\s+(\S+)", result.stdout)
+                match = re.search(
+                    rf"{re.escape(tool.package_name)}.*?\s+(\S+)", result.stdout
+                )
                 if match:
                     return match.group(1)
 
         elif pm == "pacman":
             result = subprocess.run(
                 ["pacman", "-Si", tool.package_name],
-                capture_output=True, text=True, timeout=10
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if result.returncode == 0:
                 match = re.search(r"Version\s*:\s*(\S+)", result.stdout)
@@ -140,7 +166,9 @@ def get_latest_from_package_manager(tool: Tool) -> Optional[str]:
         elif pm == "zypper":
             result = subprocess.run(
                 ["zypper", "info", tool.package_name],
-                capture_output=True, text=True, timeout=10
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             if result.returncode == 0:
                 match = re.search(r"Version\s*:\s*(\S+)", result.stdout)
@@ -150,7 +178,9 @@ def get_latest_from_package_manager(tool: Tool) -> Optional[str]:
         elif pm == "winget":
             result = subprocess.run(
                 ["winget", "list", "--id", tool.package_name],
-                capture_output=True, text=True, timeout=30
+                capture_output=True,
+                text=True,
+                timeout=30,
             )
             if result.returncode == 0:
                 lines = result.stdout.strip().split("\n")
@@ -182,7 +212,9 @@ def get_version_info(tool: Tool) -> VersionInfo:
 
     if which_path:
         try:
-            result = subprocess.run([which_path, "--version"], capture_output=True, text=True, timeout=5)
+            result = subprocess.run(
+                [which_path, "--version"], capture_output=True, text=True, timeout=5
+            )
             if result.returncode == 0:
                 output = result.stdout + result.stderr
                 match = re.search(r"(\d+\.\d+\.?\d*)", output)
@@ -222,6 +254,7 @@ def get_version_info(tool: Tool) -> VersionInfo:
 
 def compare_versions(v1: str, v2: str) -> int:
     """比较两个版本号，返回 1 if v1 > v2, -1 if v1 < v2, 0 if equal"""
+
     def parse(v: str) -> tuple:
         v = v.lstrip("v")
         parts = re.split(r"[.\-_]", v)
@@ -277,7 +310,7 @@ class GitHubInstaller(Installer):
 
     def _get_data_dir(self, tool: Tool, version: str) -> Path:
         clean_version = self._sanitize_dirname(version.lstrip("v"))
-        return Path(self.paths["quick_env_data"]) / f"{tool.name}_{clean_version}"
+        return Path(self.paths["quick_env_tools"]) / f"{tool.name}_{clean_version}"
 
     def _get_bin_path(self, tool: Tool) -> Path:
         return Path(self.paths["quick_env_bin"]) / self.platform.bin_name(tool.name)
@@ -320,7 +353,9 @@ class GitHubInstaller(Installer):
 
     def _get_binary_version(self, bin_path: Path) -> Optional[str]:
         try:
-            result = subprocess.run([str(bin_path), "--version"], capture_output=True, text=True)
+            result = subprocess.run(
+                [str(bin_path), "--version"], capture_output=True, text=True
+            )
             if result.returncode == 0:
                 output = result.stdout + result.stderr
                 match = re.search(r"(\d+\.\d+\.?\d*)", output)
@@ -337,7 +372,8 @@ class GitHubInstaller(Installer):
         try:
             result = subprocess.run(
                 ["git", "-C", str(dest), "log", "-1", "--format=%ci"],
-                capture_output=True, text=True
+                capture_output=True,
+                text=True,
             )
             if result.returncode == 0:
                 return result.stdout.strip()[:10]
@@ -346,7 +382,7 @@ class GitHubInstaller(Installer):
         return None
 
     def _cleanup_old_versions(self, tool: Tool, current_version: str) -> None:
-        data_dir = Path(self.paths["quick_env_data"])
+        data_dir = Path(self.paths["quick_env_tools"])
         if not data_dir.exists():
             return
         clean_current = self._sanitize_dirname(current_version.lstrip("v"))
@@ -360,14 +396,24 @@ class GitHubInstaller(Installer):
     def install(self, tool: Tool) -> InstallResult:
         if tool.config_repo:
             result = self._install_config(tool)
-            log_install(tool.display_name, result.version, self.name, result.success, result.message)
+            log_install(
+                tool.display_name,
+                result.version,
+                self.name,
+                result.success,
+                result.message,
+            )
             return result
         if not tool.repo or not tool.github_asset_patterns:
-            result = InstallResult(False, "Tool does not support GitHub installation", self.name)
+            result = InstallResult(
+                False, "Tool does not support GitHub installation", self.name
+            )
             log_install(tool.display_name, None, self.name, False, result.message)
             return result
         result = self._install_binary(tool)
-        log_install(tool.display_name, result.version, self.name, result.success, result.message)
+        log_install(
+            tool.display_name, result.version, self.name, result.success, result.message
+        )
         return result
 
     def _install_binary(self, tool: Tool) -> InstallResult:
@@ -380,13 +426,20 @@ class GitHubInstaller(Installer):
 
         if tool.github_asset_patterns:
             asset = self.api.find_asset_by_platform(
-                release, tool.github_asset_patterns, self.platform.platform_name, self.platform.arch_name
+                release,
+                tool.github_asset_patterns,
+                self.platform.platform_name,
+                self.platform.arch_name,
             )
         else:
             return InstallResult(False, "No github_asset_patterns defined", self.name)
 
         if not asset:
-            return InstallResult(False, f"No asset found for {self.platform.platform_name}/{self.platform.arch_name}", self.name)
+            return InstallResult(
+                False,
+                f"No asset found for {self.platform.platform_name}/{self.platform.arch_name}",
+                self.name,
+            )
 
         cache_dir = Path(self.paths["quick_env_cache"])
         cache_dir.mkdir(parents=True, exist_ok=True)
@@ -430,7 +483,12 @@ class GitHubInstaller(Installer):
 
         self._cleanup_old_versions(tool, version)
 
-        return InstallResult(True, f"Installed {tool.display_name} {release.tag_name}", self.name, release.tag_name)
+        return InstallResult(
+            True,
+            f"Installed {tool.display_name} {release.tag_name}",
+            self.name,
+            release.tag_name,
+        )
 
     def _install_config(self, tool: Tool) -> InstallResult:
         dest = self._get_config_dest(tool)
@@ -439,16 +497,21 @@ class GitHubInstaller(Installer):
 
         if dest.exists():
             try:
-                subprocess.run(["git", "-C", str(dest), "pull"], check=True, capture_output=True)
+                subprocess.run(
+                    ["git", "-C", str(dest), "pull"], check=True, capture_output=True
+                )
                 return InstallResult(True, f"Updated {tool.display_name}", self.name)
             except subprocess.CalledProcessError:
-                return InstallResult(False, f"Failed to update {tool.display_name}", self.name)
+                return InstallResult(
+                    False, f"Failed to update {tool.display_name}", self.name
+                )
 
         dest.parent.mkdir(parents=True, exist_ok=True)
         try:
             subprocess.run(
                 ["git", "clone", f"https://github.com/{tool.config_repo}", str(dest)],
-                check=True, capture_output=True
+                check=True,
+                capture_output=True,
             )
         except subprocess.CalledProcessError as e:
             return InstallResult(False, f"Clone failed: {e.stderr}", self.name)
@@ -469,7 +532,9 @@ class GitHubInstaller(Installer):
 
     def uninstall(self, tool: Tool) -> InstallResult:
         if tool.config_repo:
-            return InstallResult(False, "Use git_clone uninstall for config repos", self.name)
+            return InstallResult(
+                False, "Use git_clone uninstall for config repos", self.name
+            )
 
         bin_path = self._get_bin_path(tool)
         self.platform.remove_bin_entry(bin_path)
@@ -518,7 +583,9 @@ class PackageManagerInstaller(Installer):
         if not which_path:
             return None
         try:
-            result = subprocess.run([cmd_name, "--version"], capture_output=True, text=True)
+            result = subprocess.run(
+                [cmd_name, "--version"], capture_output=True, text=True
+            )
             if result.returncode == 0:
                 output = result.stdout + result.stderr
                 match = re.search(r"(\d+\.\d+\.?\d*)", output)
@@ -530,7 +597,9 @@ class PackageManagerInstaller(Installer):
 
     def install(self, tool: Tool) -> InstallResult:
         if not self.manager or not tool.package_name:
-            return InstallResult(False, "Tool does not support package manager installation", self.name)
+            return InstallResult(
+                False, "Tool does not support package manager installation", self.name
+            )
 
         cmd = PACKAGE_MANAGER_COMMANDS.get(self.manager, {}).get("install", "")
         cmd = cmd.format(pkg=tool.package_name)
@@ -538,15 +607,24 @@ class PackageManagerInstaller(Installer):
             return InstallResult(False, "Package manager not configured", self.name)
 
         try:
-            result = subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
+            result = subprocess.run(
+                cmd, shell=True, check=True, capture_output=True, text=True
+            )
             version = self.get_version(tool)
-            return InstallResult(True, f"Installed {tool.display_name} via {self.manager}", self.name, version)
+            return InstallResult(
+                True,
+                f"Installed {tool.display_name} via {self.manager}",
+                self.name,
+                version,
+            )
         except subprocess.CalledProcessError as e:
             return InstallResult(False, f"Installation failed: {e.stderr}", self.name)
 
     def uninstall(self, tool: Tool) -> InstallResult:
         if not self.manager or not tool.package_name:
-            result = InstallResult(False, "Tool does not support uninstall via package manager", self.name)
+            result = InstallResult(
+                False, "Tool does not support uninstall via package manager", self.name
+            )
             log_uninstall(tool.display_name, False, result.message)
             return result
 
@@ -562,7 +640,11 @@ class PackageManagerInstaller(Installer):
 
         cmd = uninstall_cmds.get(self.manager)
         if not cmd:
-            result = InstallResult(False, f"Cannot uninstall {tool.package_name} via {self.manager}", self.name)
+            result = InstallResult(
+                False,
+                f"Cannot uninstall {tool.package_name} via {self.manager}",
+                self.name,
+            )
             log_uninstall(tool.display_name, False, result.message)
             return result
 
@@ -577,8 +659,8 @@ class PackageManagerInstaller(Installer):
             return result
 
 
-class GitCloneInstaller(Installer):
-    name = "git_clone"
+class DotfileInstaller(Installer):
+    name = "dotfile"
     priority = 10
 
     def __init__(self):
@@ -588,90 +670,246 @@ class GitCloneInstaller(Installer):
     def is_available(self) -> bool:
         return shutil.which("git") is not None
 
+    def _get_dotfiles_dir(self, tool: Tool) -> Path:
+        return Path(self.paths["quick_env_dotfiles"]) / tool.name
+
     def is_installed(self, tool: Tool) -> bool:
         if not tool.config_repo:
             return False
-        dest = self._get_config_dest(tool)
-        return dest.exists() if dest else False
+        dest = self._get_dotfiles_dir(tool)
+        return dest.exists() and self._is_git_repo(dest)
+
+    def _is_git_repo(self, path: Path) -> bool:
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(path), "rev-parse", "--git-dir"],
+                capture_output=True,
+                timeout=5,
+            )
+            return result.returncode == 0
+        except Exception:
+            return False
 
     def get_version(self, tool: Tool) -> Optional[str]:
-        if not tool.config_repo:
-            return None
-        dest = self._get_config_dest(tool)
-        if not dest or not dest.exists():
+        dest = self._get_dotfiles_dir(tool)
+        if not dest.exists():
             return None
         try:
             result = subprocess.run(
                 ["git", "-C", str(dest), "log", "-1", "--format=%ci"],
-                capture_output=True, text=True
+                capture_output=True,
+                text=True,
+                timeout=5,
             )
-            if result.returncode == 0:
+            if result.returncode == 0 and result.stdout.strip():
                 return result.stdout.strip()[:10]
         except Exception:
             pass
         return None
 
+    def _get_current_branch(self, repo_path: Path) -> Optional[str]:
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(repo_path), "rev-parse", "--abbrev-ref", "HEAD"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            if result.returncode == 0:
+                return result.stdout.strip()
+        except Exception:
+            pass
+        return None
+
+    def _is_git_dirty(self, repo_path: Path) -> bool:
+        try:
+            result = subprocess.run(
+                ["git", "-C", str(repo_path), "status", "--porcelain"],
+                capture_output=True,
+                text=True,
+                timeout=5,
+            )
+            return bool(result.stdout.strip())
+        except Exception:
+            return False
+
+    def _should_exclude(self, path: str, exclude_patterns: list[str]) -> bool:
+        for pattern in exclude_patterns:
+            if fnmatch.fnmatch(path, pattern):
+                return True
+            if fnmatch.fnmatch(os.path.basename(path), pattern):
+                return True
+        return False
+
+    def _find_matching_files(
+        self, repo_path: Path, glob_pattern: str, exclude_patterns: list[str]
+    ) -> List[Path]:
+        matches = []
+        base_pattern = glob_pattern.replace("*", "").rstrip("/")
+
+        for item in repo_path.rglob("*"):
+            rel_path = item.relative_to(repo_path)
+            rel_str = str(rel_path)
+
+            if self._should_exclude(rel_str, exclude_patterns):
+                continue
+
+            if fnmatch.fnmatch(rel_str, glob_pattern) or fnmatch.fnmatch(
+                item.name, glob_pattern
+            ):
+                matches.append(item)
+
+            if (
+                base_pattern
+                and str(rel_path).startswith(base_pattern)
+                and "*" in glob_pattern
+            ):
+                if self._should_exclude(rel_str, exclude_patterns):
+                    continue
+                if fnmatch.fnmatch(rel_str, glob_pattern):
+                    matches.append(item)
+
+        return matches
+
+    def _create_link(self, src: Path, dest_path: Path) -> bool:
+        try:
+            dest_path.parent.mkdir(parents=True, exist_ok=True)
+
+            if dest_path.is_symlink():
+                dest_path.unlink()
+            elif dest_path.exists():
+                backup = dest_path.with_suffix(".bak")
+                shutil.move(str(dest_path), str(backup))
+
+            if src.is_dir():
+                if self.platform.is_msys:
+                    return False
+                os.symlink(src, dest_path, target_is_directory=True)
+            else:
+                if self.platform.is_msys:
+                    return False
+                os.symlink(src, dest_path)
+
+            return True
+        except OSError:
+            return False
+
+    def _remove_link(self, link_path: Path) -> bool:
+        try:
+            if link_path.is_symlink():
+                link_path.unlink()
+                return True
+            return False
+        except OSError:
+            return False
+
     def install(self, tool: Tool) -> InstallResult:
         if not tool.config_repo:
-            return InstallResult(False, "Tool does not support git clone installation", self.name)
+            return InstallResult(
+                False, "Tool does not support dotfile installation", self.name
+            )
 
-        dest = self._get_config_dest(tool)
-        if not dest:
-            return InstallResult(False, "Invalid config path", self.name)
+        dest = self._get_dotfiles_dir(tool)
 
         if dest.exists():
-            try:
-                subprocess.run(["git", "-C", str(dest), "pull"], check=True, capture_output=True)
-                return InstallResult(True, f"Updated {tool.display_name}", self.name)
-            except subprocess.CalledProcessError:
-                return InstallResult(False, f"Failed to update {tool.display_name}", self.name)
+            if self._is_git_repo(dest):
+                try:
+                    subprocess.run(
+                        ["git", "-C", str(dest), "pull"],
+                        check=True,
+                        capture_output=True,
+                        timeout=30,
+                    )
+                    self._create_links(tool, dest)
+                    return InstallResult(
+                        True, f"Updated {tool.display_name}", self.name
+                    )
+                except subprocess.CalledProcessError:
+                    return InstallResult(
+                        False, f"Failed to update {tool.display_name}", self.name
+                    )
+            else:
+                shutil.rmtree(dest)
 
         dest.parent.mkdir(parents=True, exist_ok=True)
         try:
+            branch_args = (
+                ["--branch", tool.config_branch] if tool.config_branch != "main" else []
+            )
             subprocess.run(
-                ["git", "clone", f"https://github.com/{tool.config_repo}", str(dest)],
-                check=True, capture_output=True
+                ["git", "clone"]
+                + branch_args
+                + [f"https://github.com/{tool.config_repo}", str(dest)],
+                check=True,
+                capture_output=True,
+                timeout=60,
             )
         except subprocess.CalledProcessError as e:
             return InstallResult(False, f"Clone failed: {e.stderr}", self.name)
+        except subprocess.TimeoutExpired:
+            return InstallResult(False, "Clone timed out", self.name)
 
-        if tool.config_link:
-            user_link = Path(os.path.expanduser(tool.config_link))
-            user_link.parent.mkdir(parents=True, exist_ok=True)
-            if user_link.exists() or user_link.is_symlink():
-                if user_link.is_symlink():
-                    user_link.unlink()
-                else:
-                    backup = user_link.with_suffix(".bak")
-                    shutil.move(str(user_link), str(backup))
-            if dest.is_dir():
-                os.symlink(dest, user_link)
+        self._create_links(tool, dest)
 
         return InstallResult(True, f"Installed {tool.display_name}", self.name)
 
+    def _create_links(self, tool: Tool, repo_path: Path):
+        for link_config in tool.links:
+            src_path = repo_path / link_config.glob
+            dest_path = Path(os.path.expanduser(link_config.to))
+
+            if src_path.exists():
+                self._create_link(src_path, dest_path)
+            else:
+                matching = self._find_matching_files(
+                    repo_path, link_config.glob, tool.exclude
+                )
+                if matching:
+                    if dest_path.is_dir() or (
+                        not dest_path.suffix
+                        and dest_path.name != link_config.glob.split("/")[0]
+                    ):
+                        dest_path.mkdir(parents=True, exist_ok=True)
+                        for match in matching:
+                            rel_path = match.relative_to(repo_path)
+                            target = dest_path / rel_path.name
+                            if match.is_dir():
+                                continue
+                            self._create_link(match, target)
+                    else:
+                        self._create_link(matching[0], dest_path)
+
     def uninstall(self, tool: Tool) -> InstallResult:
-        if not tool.config_repo:
-            result = InstallResult(False, "Tool does not support uninstall", self.name)
-            log_uninstall(tool.display_name, False, result.message)
-            return result
+        if tool.is_dotfile():
+            return InstallResult(
+                False, "Use dotfile uninstall for config repos", self.name
+            )
 
-        dest = self._get_config_dest(tool)
-        if dest and dest.exists():
-            shutil.rmtree(dest)
+        bin_path = self._get_bin_path(tool)
+        self.platform.remove_bin_entry(bin_path)
 
-        if tool.config_link:
-            user_link = Path(os.path.expanduser(tool.config_link))
-            if user_link.is_symlink():
-                user_link.unlink()
+        data_dir = Path(self.paths["quick_env_tools"])
+        if data_dir.exists():
+            prefix = f"{tool.name}_"
+            for item in data_dir.iterdir():
+                if item.is_dir() and item.name.startswith(prefix):
+                    shutil.rmtree(item)
 
         result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
         log_uninstall(tool.display_name, True, result.message)
         return result
 
-    def _get_config_dest(self, tool: Tool) -> Optional[Path]:
-        if not tool.config_repo:
-            return None
-        return Path(self.paths["quick_env_config"]) / tool.name
+        for link_config in tool.links:
+            dest_path = Path(os.path.expanduser(link_config.to))
+            self._remove_link(dest_path)
+
+        dest = self._get_dotfiles_dir(tool)
+        if dest.exists():
+            shutil.rmtree(dest)
+
+        result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
+        log_uninstall(tool.display_name, True, result.message)
+        return result
 
 
 class InstallerFactory:
@@ -686,7 +924,8 @@ class InstallerFactory:
             "github": GitHubInstaller,
             "system": PackageManagerInstaller,
             "package_manager": PackageManagerInstaller,
-            "git_clone": GitCloneInstaller,
+            "git_clone": DotfileInstaller,
+            "dotfile": DotfileInstaller,
         }
 
         if name in installers:
@@ -711,11 +950,14 @@ class InstallerFactory:
         return [
             cls.get_installer("github"),
             cls.get_installer("system"),
-            cls.get_installer("git_clone"),
+            cls.get_installer("dotfile"),
         ]
 
     @classmethod
     def get_best_installer(cls, tool: Tool) -> Optional[Installer]:
+        if tool.is_dotfile():
+            return cls.get_installer("dotfile")
+
         available = []
         for name in tool.installable_by:
             installer = cls.get_installer(name)
@@ -746,15 +988,62 @@ class InstallerFactory:
                         is_current = True
 
                 version = installer.get_version(tool)
-                detection.sources.append(SourceInfo(
-                    name=installer.name,
-                    path=str(which_path) if which_path else "unknown",
-                    version=version,
-                    is_current=is_current,
-                ))
+                detection.sources.append(
+                    SourceInfo(
+                        name=installer.name,
+                        path=str(which_path) if which_path else "unknown",
+                        version=version,
+                        is_current=is_current,
+                    )
+                )
                 if is_current:
                     detection.current_source = installer.name
                 detection.installed = True
 
         detection.sources.sort(key=lambda x: not x.is_current)
         return detection
+
+
+def install_parallel(
+    tools: List[Tool], force: bool = False, max_workers: int = 4
+) -> List[InstallResult]:
+    """并行安装多个工具"""
+    from concurrent.futures import ThreadPoolExecutor, as_completed
+    from .logger import log_install
+
+    results = []
+
+    def install_single(tool: Tool) -> InstallResult:
+        installer = InstallerFactory.get_best_installer(tool)
+        if not installer:
+            return InstallResult(
+                False, f"No installer available for {tool.display_name}", "none"
+            )
+
+        if not force and installer.is_installed(tool):
+            return InstallResult(
+                True, f"{tool.display_name} is already installed", installer.name
+            )
+
+        return installer.install(tool)
+
+    with ThreadPoolExecutor(max_workers=max_workers) as executor:
+        future_to_tool = {executor.submit(install_single, tool): tool for tool in tools}
+        for future in as_completed(future_to_tool):
+            tool = future_to_tool[future]
+            try:
+                result = future.result()
+                results.append(result)
+                log_install(
+                    tool.display_name,
+                    result.version,
+                    result.method,
+                    result.success,
+                    result.message,
+                )
+            except Exception as e:
+                result = InstallResult(False, f"Installation failed: {e}", "none")
+                results.append(result)
+                log_install(tool.display_name, None, "none", False, result.message)
+
+    return results

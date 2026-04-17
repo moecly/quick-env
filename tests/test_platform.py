@@ -159,6 +159,7 @@ class TestPackageManagerDetection(unittest.TestCase):
             if cmd in ("apt", "apt-get"):
                 return f"/usr/bin/{cmd}"
             return None
+
         mock_which.side_effect = which
         self.assertEqual(detect_package_manager(), "apt")
 
@@ -188,12 +189,19 @@ class TestGetEnvPaths(unittest.TestCase):
         self.assertIn("quick_env_home", paths)
         self.assertIn("quick_env_bin", paths)
         self.assertIn("quick_env_config", paths)
-        self.assertIn("quick_env_data", paths)
+        self.assertIn("quick_env_tools", paths)
+        self.assertIn("quick_env_dotfiles", paths)
         self.assertIn("quick_env_cache", paths)
 
     def test_quick_env_paths_contain_quick_env(self):
         paths = get_env_paths()
-        quick_env_keys = ["quick_env_home", "quick_env_bin", "quick_env_config", "quick_env_data"]
+        quick_env_keys = [
+            "quick_env_home",
+            "quick_env_bin",
+            "quick_env_config",
+            "quick_env_tools",
+            "quick_env_dotfiles",
+        ]
         for key in quick_env_keys:
             self.assertIn("quick-env", paths[key])
 

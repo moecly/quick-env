@@ -5,7 +5,7 @@ import sys
 from pathlib import Path
 from typing import Optional
 
-from .tools import Tool
+from .tools import Tool, LinkConfig
 
 
 class ToolConfig(Tool):
@@ -67,9 +67,13 @@ class Config:
             if key.startswith("quick_env_"):
                 Path(path).mkdir(parents=True, exist_ok=True)
 
-        data_dir = Path(paths["quick_env_data"])
-        if not data_dir.exists():
-            data_dir.mkdir(parents=True, exist_ok=True)
+        tools_dir = Path(paths["quick_env_tools"])
+        if not tools_dir.exists():
+            tools_dir.mkdir(parents=True, exist_ok=True)
+
+        dotfiles_dir = Path(paths["quick_env_dotfiles"])
+        if not dotfiles_dir.exists():
+            dotfiles_dir.mkdir(parents=True, exist_ok=True)
 
         user_config = Config._get_user_config_path()
         if not user_config.exists():
@@ -91,8 +95,11 @@ class Config:
             sys.exit(1)
 
         for name, tool_data in data.get("tools", {}).items():
+            links = [LinkConfig.from_dict(link) for link in tool_data.get("links", [])]
+
             self.tools[name] = ToolConfig(
                 name=tool_data.get("name", name),
+                type=tool_data.get("type", "binary"),
                 display_name=tool_data.get("display_name", name),
                 description=tool_data.get("description", ""),
                 installable_by=tool_data.get("installable_by", []),
@@ -102,7 +109,9 @@ class Config:
                 repo=tool_data.get("repo"),
                 github_asset_patterns=tool_data.get("github_asset_patterns", {}),
                 config_repo=tool_data.get("config_repo"),
-                config_link=tool_data.get("config_link"),
+                config_branch=tool_data.get("config_branch", "main"),
+                links=links,
+                exclude=tool_data.get("exclude", []),
                 aliases=tool_data.get("aliases", []),
             )
 

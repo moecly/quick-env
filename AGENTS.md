@@ -4,8 +4,9 @@
 
 ## 项目目标
 
-- 配置文件（TOML）管理工具定义，方便扩展新工具
+- 配置文件（TOML）驱动，完全可扩展，添加新工具无需修改代码
 - 支持多平台：Git Bash、WSL、Linux、macOS
+- 支持两类内容：二进制工具 + 配置文件（dotfiles）
 - 多种安装方式：GitHub 下载、包管理器、Git 克隆
 - 不自动修改用户文件（.bashrc 等），只提示需要添加的环境变量
 - 工具直接安装到 `~/.quick-env/bin/`
@@ -35,7 +36,187 @@
 
 ### 待实现
 
-- 无
+- [ ] 目录结构重构：`data/` → `tools/`，新增 `dotfiles/` 目录
+- [ ] 新增 `type` 字段区分工具类型（`binary` / `dotfile`）
+- [ ] 新增 dotfile 配置格式（`links`、`exclude`、`config_branch`）
+- [ ] 实现 DotfileInstaller（支持 glob 模式链接）
+- [ ] 并行安装支持（`install all` 并发下载）
+- [ ] 配置迁移：更新 `tools.toml` 格式
+- [ ] 增强 doctor 命令：诊断工具状态（软链接、可用性、dotfile 链接）
+
+## 开发规范
+
+### 代码更新同步要求
+
+每次更新代码时，**必须**同步更新测试和文档：
+
+| 更新内容 | 必须同步更新 |
+|----------|--------------|
+| 新增功能 | 测试用例 + AGENTS.md |
+| 修改字段 | 测试断言 + 文档说明 |
+| 重构目录 | 所有涉及路径的测试 |
+| 新增 API | 对应单元测试 |
+
+### 测试文件结构
+
+```
+tests/
+├── test_tools.py           # 工具定义、配置解析
+├── test_installer.py       # 安装器逻辑
+├── test_platform.py        # 平台检测
+├── test_github.py          # GitHub API
+├── test_downloader.py      # 下载解压
+├── test_dotfile.py         # 新增：dotfile 链接逻辑
+├── test_parallel.py        # 新增：并行安装
+└── test_doctor.py          # 新增：诊断功能
+```
+
+### 待补充的测试
+
+| 功能 | 测试内容 |
+|------|----------|
+| type 字段 | 新增 type 字段测试 |
+| links 字段 | links 解析、glob 匹配、目录结构测试 |
+| exclude 字段 | exclude 解析、排除逻辑测试 |
+| DotfileInstaller | glob 匹配、目录结构、冲突处理测试 |
+| 并行安装 | 并发下载、错误处理测试 |
+| doctor 增强 | 7 层诊断测试 |
+| 目录重构 | 所有涉及路径的测试更新 |
+
+## doctor 命令详细设计
+
+### 诊断分层
+
+```
+doctor
+├── 1. System Check（系统检查）
+├── 2. Directory Check（目录检查）
+├── 3. Config Check（配置检查）
+├── 4. Binary Tools Check（工具检查）
+├── 5. Dotfiles Check（配置文件检查）
+├── 6. PATH Check（环境变量检查）
+└── 7. Network Check（网络检查，可选）
+```
+
+### 1. System Check
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| Python 版本 | ✓/✗ | Python ≥ 3.10 |
+| Git | ✓/✗ | `git --version` |
+| curl/wget | ✓/✗ | 至少一个可用 |
+| 包管理器 | ✓/! | apt/brew/dnf 等，! 表示无但不影响 |
+| 平台检测 | info | Linux/macOS/WSL/Git Bash |
+
+### 2. Directory Check
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| `~/.quick-env/` | ✓/✗ | 主目录 |
+| `~/.quick-env/bin/` | ✓/✗ | 软链接目录 |
+| `~/.quick-env/cache/` | ✓/✗ | 下载缓存 |
+| `~/.quick-env/tools/` | ✓/! | 工具目录（不存在可接受） |
+| `~/.quick-env/dotfiles/` | ✓/! | dotfiles 目录 |
+| `~/.quick-env/logs/` | ✓/✗ | 日志目录 |
+| `~/.quick-env/configs/` | ✓/✗ | 配置目录 |
+
+**状态说明**：✓ 正常，✗ 缺失（错误），! 可选（警告）
+
+### 3. Config Check
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| tools.toml 存在 | ✓/✗ | 配置文件存在 |
+| TOML 语法正确 | ✓/✗ | 能否解析 |
+| 工具定义完整 | ✓/! | 必需字段是否存在 |
+| type 字段 | ✓/! | 是否有 type 字段 |
+| 无效的工具类型 | ! | 未知 type 给出警告 |
+
+### 4. Binary Tools Check
+
+对每个 `type = "binary"` 的工具：
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| bin 入口存在 | ✓/✗ | `~/.quick-env/bin/lazygit` |
+| 软链接有效 | ✓/✗ | 指向的目标存在 |
+| 目标可执行 | ✓/✗ | 有执行权限 |
+| 工具可运行 | ✓/✗ | `lazygit --version` 成功 |
+| 版本检测 | info | 显示当前版本 |
+| 平台匹配 | ✓/! | asset pattern 是否匹配当前平台 |
+
+**输出示例**：
+```
+[green]✓[green] lazygit   v0.40.0    OK
+[green]✓[green] fd        v8.4.7     OK
+[yellow]![yellow] rg      -          未安装（可从 GitHub 安装）
+[red]✗[red]   nvim      -          Broken symlink
+```
+
+### 5. Dotfiles Check
+
+对每个 `type = "dotfile"` 的工具：
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| 仓库目录存在 | ✓/✗ | `~/.quick-env/dotfiles/nvim-config/` |
+| Git 仓库有效 | ✓/✗ | 是有效的 git 仓库 |
+| 分支正确 | ✓/! | 当前分支与 config_branch 一致 |
+| 链接状态 | ✓/!/✗ | 符号链接存在且有效 |
+| 链接目标存在 | ✓/✗ | `~/.config/nvim` 目录存在 |
+| Git 脏状态 | ! | 有未提交的更改 |
+| links 匹配 | ✓/! | glob 模式能否匹配到文件 |
+
+**输出示例**：
+```
+[green]✓[green] tmux-config
+         ├─ Repo:    ~/.quick-env/dotfiles/tmux-config/
+         ├─ Link:    ~/.tmux.conf → repo
+         └─ Status:  Clean
+
+[green]✓[green] nvim-config
+         ├─ Repo:    ~/.quick-env/dotfiles/nvim-config/
+         ├─ Links:   3 links
+         │   ├─ ~/.config/nvim/ → nvim/
+         │   ├─ ~/.config/nvim/init.lua → init.lua
+         │   └─ ~/.config/nvim/lua/ → lua/
+         └─ Status:  Dirty (2 uncommitted changes)
+
+[red]✗[red]   zsh-config
+         ├─ Repo:    ~/.quick-env/dotfiles/zsh-config/
+         └─ Error:   Broken link ~/.zshrc
+```
+
+### 6. PATH Check
+
+| 检查项 | 状态 | 说明 |
+|--------|------|------|
+| bin 在 PATH 中 | ✓/✗ | `~/.quick-env/bin` 是否在 $PATH |
+| 工具可发现 | ✓/✗ | `which lazygit` 能找到 |
+
+### 汇总输出
+
+```
+========================================
+quick-env Doctor Report
+========================================
+Platform: Linux (WSL) x86_64
+Time: 2024-01-15 10:30:00
+
+[Summary]
+  System:     5/5 passed
+  Directory:  6/7 passed (1 warning)
+  Config:     OK
+  Binary:     3/4 passed, 1 not installed
+  Dotfiles:   2/3 passed, 1 broken link
+  PATH:       OK
+
+[Action Required]
+  1. Add ~/.quick-env/bin to PATH
+  2. Fix broken link: zsh-config → ~/.zshrc
+
+========================================
+```
 
 ## 目录结构
 
@@ -43,17 +224,22 @@
 ~/.quick-env/
 ├── bin/           # 软链接/脚本入口
 ├── cache/         # 下载缓存（压缩包）
-├── data/          # 解压后的完整目录
+├── tools/         # 二进制工具（重命名自 data/）
+├── dotfiles/      # 用户配置文件仓库（新增）
 ├── logs/          # 日志文件（按天存储，保留 7 天）
 └── configs/
-    └── tools.toml  # 用户配置
+    └── tools.toml  # 工具配置文件
 ```
 
 ### 安装结构说明
 
-- **Linux/macOS/WSL**: `bin/lazygit` → `../data/lazygit_0.40.0/lazygit`（软链接）
-- **Git Bash/MSYS2**: `bin/lazygit.cmd` → 调用 `../data/lazygit_0.40.0/lazygit.exe`
-- **Windows 原生**: 使用 `.cmd` 脚本（同 Git Bash）
+**二进制工具 (type = "binary")**：
+- **Linux/macOS/WSL**: `bin/lazygit` → `../tools/lazygit_0.40.0/lazygit`（软链接）
+- **Git Bash/MSYS2**: `bin/lazygit.cmd` → 调用 `../tools/lazygit_0.40.0/lazygit.exe`
+
+**配置文件 (type = "dotfile")**：
+- 仓库克隆到 `~/.quick-env/dotfiles/<name>/`
+- 根据 `links` 配置创建符号链接到用户目录
 
 ## 配置说明
 
@@ -63,28 +249,97 @@
 
 ## 工具定义格式
 
+### 二进制工具 (type = "binary")
+
 ```toml
 [tools.xxx]
+type = "binary"              # 工具类型：binary
 name = "xxx"
 display_name = "Xxx"
 description = "Description"
-installable_by = ["github", "package_manager", "git_clone"]
-priority.github = 10           # 可选，默认 100
-priority.package_manager = 30  # 可选
-package_name = "xxx"           # 包管理器包名
-repo = "user/repo"            # GitHub 仓库
-aliases = ["xxx"]              # 别名
+installable_by = ["github", "package_manager"]
+priority.github = 10           # 可选，默认 10
+priority.package_manager = 30 # 可选
+package_name = "xxx"         # 包管理器包名
+repo = "user/repo"           # GitHub 仓库
+aliases = ["xxx"]             # 别名
 
-# GitHub 下载的 asset 匹配模式
 [tools.xxx.github_asset_patterns]
 linux_x86_64 = "xxx_{version}_linux_x86_64.tar.gz"
 darwin_x86_64 = "xxx_{version}_darwin_x86_64.tar.gz"
 
-# 包管理器命令名映射
 [tools.xxx.package_manager_commands]
-apt = "fdfind"   # Debian/Ubuntu
-brew = "fd"      # macOS
+apt = "fdfind"
+brew = "fd"
 default = "fd"
+```
+
+### 配置文件 (type = "dotfile")
+
+```toml
+[tools.nvim-config]
+type = "dotfile"              # 工具类型：dotfile
+name = "nvim-config"
+description = "My Neovim configuration"
+config_repo = "moecly/nvim-config"  # GitHub 仓库
+config_branch = "main"       # 可选，默认 main
+links = [
+    { glob = "nvim", to = "~/.config/nvim" },
+]
+exclude = ["*.md", "README.md", ".git"]
+
+[tools.zsh-config]
+type = "dotfile"
+name = "zsh-config"
+config_repo = "moecly/zsh-config"
+links = [
+    { glob = ".zshrc", to = "~/.zshrc" },
+    { glob = ".zprofile", to = "~/.zprofile" },
+    { glob = ".config/zsh/*", to = "~/.config/zsh/" },
+]
+exclude = ["*.md"]
+
+[tools.tmux-config]
+type = "dotfile"
+name = "tmux-config"
+config_repo = "moecly/tmux_config"
+links = [
+    { glob = ".tmux.conf", to = "~/.tmux.conf" },
+]
+```
+
+### links 字段说明
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `glob` | string | 仓库内文件/目录的 glob 匹配模式 |
+| `to` | string | 目标路径，支持 `~` 展开 |
+
+### exclude 字段说明
+
+使用 glob 语法排除文件，如 `["*.md", ".git", "LICENSE"]`
+
+## 添加新工具流程
+
+**添加新二进制工具**（无需修改代码）：
+```toml
+[tools.fzf]
+type = "binary"
+name = "fzf"
+installable_by = ["github", "package_manager"]
+repo = "junegunn/fzf"
+# ... github_asset_patterns
+```
+
+**添加新配置文件**（无需修改代码）：
+```toml
+[tools.vim-config]
+type = "dotfile"
+name = "vim-config"
+config_repo = "yourusername/vim-config"
+links = [
+    { glob = "vimrc", to = "~/.vimrc" },
+]
 ```
 
 ## 安装方式优先级
@@ -93,6 +348,7 @@ default = "fd"
 
 ```toml
 [tools.nvim]
+type = "binary"
 installable_by = ["github", "package_manager"]
 priority.github = 10           # 数字越小优先级越高
 priority.package_manager = 30
@@ -108,7 +364,7 @@ priority.package_manager = 30
 ```bash
 quick-env init              # 初始化配置
 quick-env install <tool>    # 安装工具
-quick-env install all       # 安装全部
+quick-env install all       # 安装全部（并发）
 quick-env install <tool> --force  # 强制重新安装
 quick-env install <tool> -m github # 指定安装方式
 quick-env uninstall <tool>  # 卸载工具（只删 quick-env 的）
@@ -125,11 +381,12 @@ quick-env config edit       # 编辑配置
 ## 核心逻辑
 
 ### 安装逻辑
-1. 按 `installable_by` + `priority` 选择安装方式
-2. 已安装的工具会跳过安装（使用 `--force` 强制重新安装）
-3. 下载到 cache/，解压到 data/<tool>_<version>/
-4. 创建 bin/<tool> 入口（软链接或 .cmd 脚本）
-5. 清理旧版本目录
+1. 按 `type` 区分工具类型
+2. `binary`: 按 `installable_by` + `priority` 选择安装方式
+3. `dotfile`: Git clone + glob 链接
+4. 已安装的工具会跳过安装（使用 `--force` 强制重新安装）
+5. 下载到 cache/，解压到 tools/<tool>_<version>/
+6. 创建 bin/<tool> 入口（软链接或 .cmd 脚本）
 
 ### 版本检测逻辑
 1. 按 `installable_by` + `priority` 顺序检测
@@ -137,8 +394,8 @@ quick-env config edit       # 编辑配置
 3. 先检查系统 PATH，找不到再检查 `~/.quick-env/bin/`
 
 ### 卸载逻辑
-- 删除 `~/.quick-env/bin/<tool>` 入口
-- 删除 `~/.quick-env/data/<tool>_<version>/` 目录
+- **binary**: 删除 `~/.quick-env/bin/<tool>` 入口 + `~/.quick-env/tools/<tool>_<version>/`
+- **dotfile**: 删除 `~/.quick-env/dotfiles/<name>/` + 用户目录的符号链接
 - 不影响系统包管理器安装的工具
 
 ## 注意事项
@@ -148,6 +405,8 @@ quick-env config edit       # 编辑配置
 3. asset 名称区分大小写，需与 GitHub Release 页面一致
 4. 日志保留 7 天，按天存储在 `~/.quick-env/logs/` 目录
 5. 配置文件修改后需要重启或重新加载
+6. dotfile 链接目标已存在时，会备份为 `.bak` 再创建链接
+7. glob 匹配保持目录结构
 
 ## 平台差异化处理
 
@@ -164,26 +423,26 @@ class Platform:
     is_git_bash: bool
     is_wsl: bool
     is_msys: bool  # Git Bash / MSYS2 环境
-    
+
     # 统一入口方法
     def exe_name(self, name: str) -> str:
         """可执行文件名（带后缀）"""
-        
+
     def bin_name(self, name: str) -> str:
         """bin 入口文件名"""
-        
+
     def find_exe(self, directory: Path, name: str) -> Optional[Path]:
         """在目录中查找可执行文件"""
-        
+
     def is_bin_installed(self, bin_dir: Path, name: str) -> bool:
         """检测 bin 入口是否存在"""
-        
+
     def install_bin_entry(self, bin_path: Path, target: Path) -> None:
         """创建 bin 入口（软链接或 .cmd 脚本）"""
-        
+
     def remove_bin_entry(self, bin_path: Path) -> None:
         """删除 bin 入口"""
-        
+
     def get_bin_executable_path(self, bin_dir: Path, name: str) -> Optional[Path]:
         """获取 bin 入口指向的可执行文件路径"""
 ```

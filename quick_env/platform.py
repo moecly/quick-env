@@ -34,7 +34,11 @@ class Platform:
 
     @property
     def is_wsl(self) -> bool:
-        return self.is_linux and os.path.exists("/proc/version") and "microsoft" in open("/proc/version").read().lower()
+        return (
+            self.is_linux
+            and os.path.exists("/proc/version")
+            and "microsoft" in open("/proc/version").read().lower()
+        )
 
     @property
     def is_msys(self) -> bool:
@@ -192,7 +196,8 @@ def get_env_paths() -> dict[str, str]:
         "quick_env_home": os.path.join(home, ".quick-env"),
         "quick_env_bin": os.path.join(home, ".quick-env", "bin"),
         "quick_env_cache": os.path.join(home, ".quick-env", "cache"),
-        "quick_env_data": os.path.join(home, ".quick-env", "data"),
+        "quick_env_tools": os.path.join(home, ".quick-env", "tools"),
+        "quick_env_dotfiles": os.path.join(home, ".quick-env", "dotfiles"),
         "quick_env_logs": os.path.join(home, ".quick-env", "logs"),
         "quick_env_config": os.path.join(home, ".quick-env", "configs"),
     }

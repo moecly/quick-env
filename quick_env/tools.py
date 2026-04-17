@@ -11,9 +11,9 @@ class Tool:
     installable_by: list[str] = field(default_factory=list)
     priority: dict[str, int] = field(default_factory=dict)
     package_name: Optional[str] = None
-    platform_commands: dict[str, str] = field(default_factory=dict)
+    package_manager_commands: dict[str, str] = field(default_factory=dict)
     repo: Optional[str] = None
-    asset_patterns: dict[str, str] = field(default_factory=dict)
+    github_asset_patterns: dict[str, str] = field(default_factory=dict)
     config_repo: Optional[str] = None
     config_link: Optional[str] = None
     aliases: list[str] = field(default_factory=list)
@@ -22,11 +22,11 @@ class Tool:
     def matches(self, name: str) -> bool:
         return name == self.name or name in self.aliases
 
-    def get_asset_pattern(self, platform: str) -> str | None:
-        if platform in self.asset_patterns:
-            return self.asset_patterns[platform]
-        if "default" in self.asset_patterns:
-            return self.asset_patterns["default"]
+    def get_github_asset_pattern(self, platform: str) -> str | None:
+        if platform in self.github_asset_patterns:
+            return self.github_asset_patterns[platform]
+        if "default" in self.github_asset_patterns:
+            return self.github_asset_patterns["default"]
         return None
 
     def get_priority(self, installer_name: str, default: int = 100) -> int:

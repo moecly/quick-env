@@ -71,8 +71,8 @@ class VersionInfo:
 def get_command_name(tool: Tool) -> str:
     """根据当前平台获取实际命令名"""
     pm = detect_package_manager()
-    if pm and tool.platform_commands:
-        return tool.platform_commands.get(pm, tool.platform_commands.get("default", tool.name))
+    if pm and tool.package_manager_commands:
+        return tool.package_manager_commands.get(pm, tool.package_manager_commands.get("default", tool.name))
     return tool.name
 
 
@@ -302,7 +302,7 @@ class GitHubInstaller(Installer):
     def install(self, tool: Tool) -> InstallResult:
         if tool.config_repo:
             return self._install_config(tool)
-        if not tool.repo or not tool.asset_patterns:
+        if not tool.repo or not tool.github_asset_patterns:
             return InstallResult(False, "Tool does not support GitHub installation", self.name)
         return self._install_binary(tool)
 
@@ -312,12 +312,12 @@ class GitHubInstaller(Installer):
         except Exception as e:
             return InstallResult(False, f"Failed to fetch release: {e}", self.name)
 
-        if tool.asset_patterns:
+        if tool.github_asset_patterns:
             asset = self.api.find_asset_by_platform(
-                release, tool.asset_patterns, self.platform.platform_name, self.platform.arch_name
+                release, tool.github_asset_patterns, self.platform.platform_name, self.platform.arch_name
             )
         else:
-            return InstallResult(False, "No asset patterns defined", self.name)
+            return InstallResult(False, "No github_asset_patterns defined", self.name)
 
         if not asset:
             return InstallResult(False, f"No asset found for {self.platform.platform_name}/{self.platform.arch_name}", self.name)

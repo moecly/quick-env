@@ -10,7 +10,7 @@ package_name = "lazygit"
 repo = "jesseduffield/lazygit"
 aliases = ["lg"]
 
-[tools.lazygit.asset_patterns]
+[tools.lazygit.github_asset_patterns]
 linux_x86_64 = "lazygit_{version}_linux_x86_64.tar.gz"
 linux_arm64 = "lazygit_{version}_linux_arm64.tar.gz"
 linux_armv7 = "lazygit_{version}_linux_armv6.tar.gz"
@@ -30,14 +30,14 @@ package_name = "fd-find"
 repo = "sharkdp/fd"
 aliases = ["find"]
 
-[tools.fd.platform_commands]
+[tools.fd.package_manager_commands]
 apt = "fdfind"
 brew = "fd"
 dnf = "fd"
 pacman = "fd"
 default = "fd"
 
-[tools.fd.asset_patterns]
+[tools.fd.github_asset_patterns]
 linux_x86_64 = "fd-v{version}-x86_64-unknown-linux-gnu.tar.gz"
 linux_arm64 = "fd-v{version}-aarch64-unknown-linux-gnu.tar.gz"
 linux_armv7 = "fd-v{version}-arm-unknown-linux-gnueabihf.tar.gz"
@@ -55,7 +55,7 @@ package_name = "ripgrep"
 repo = "BurntSushi/ripgrep"
 aliases = ["ripgrep", "grep"]
 
-[tools.rg.asset_patterns]
+[tools.rg.github_asset_patterns]
 linux_x86_64 = "ripgrep-{version}-x86_64-unknown-linux-musl.tar.gz"
 linux_arm64 = "ripgrep-{version}-aarch64-unknown-linux-gnu.tar.gz"
 linux_armv7 = "ripgrep-{version}-armv7-unknown-linux-gnueabihf.tar.gz"
@@ -76,7 +76,7 @@ package_name = "neovim"
 repo = "neovim/neovim"
 aliases = ["neovim"]
 
-[tools.nvim.asset_patterns]
+[tools.nvim.github_asset_patterns]
 linux_x86_64 = "nvim-linux-x86_64.tar.gz"
 linux_arm64 = "nvim-linux-arm64.tar.gz"
 darwin_x86_64 = "nvim-macos-x86_64.tar.gz"

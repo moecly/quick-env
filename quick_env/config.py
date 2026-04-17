@@ -67,6 +67,10 @@ class Config:
             if key.startswith("quick_env_"):
                 Path(path).mkdir(parents=True, exist_ok=True)
 
+        data_dir = Path(paths["quick_env_data"])
+        if not data_dir.exists():
+            data_dir.mkdir(parents=True, exist_ok=True)
+
         user_config = Config._get_user_config_path()
         if not user_config.exists():
             built_in = Config.get_project_config_path()

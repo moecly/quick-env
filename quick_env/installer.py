@@ -173,9 +173,15 @@ def get_version_info(tool: Tool) -> VersionInfo:
     cmd_name = get_command_name(tool)
     which_path = shutil.which(cmd_name)
 
+    if not which_path:
+        quick_env_bin = Path(get_env_paths()["quick_env_bin"])
+        quick_env_exe = quick_env_bin / cmd_name
+        if quick_env_exe.exists():
+            which_path = str(quick_env_exe)
+
     if which_path:
         try:
-            result = subprocess.run([cmd_name, "--version"], capture_output=True, text=True, timeout=5)
+            result = subprocess.run([which_path, "--version"], capture_output=True, text=True, timeout=5)
             if result.returncode == 0:
                 output = result.stdout + result.stderr
                 match = re.search(r"(\d+\.\d+\.?\d*)", output)
@@ -268,19 +274,47 @@ class GitHubInstaller(Installer):
     def is_available(self) -> bool:
         return shutil.which("curl") is not None or shutil.which("wget") is not None
 
+    def _get_data_dir(self, tool: Tool, version: str) -> Path:
+        clean_version = self._sanitize_dirname(version.lstrip("v"))
+        return Path(self.paths["quick_env_data"]) / f"{tool.name}_{clean_version}"
+
+    def _get_link_path(self, tool: Tool) -> Path:
+        return Path(self.paths["quick_env_bin"]) / tool.name
+
+    def _sanitize_dirname(self, name: str) -> str:
+        illegal_chars = "/\\.."
+        for char in illegal_chars:
+            name = name.replace(char, "-")
+        return name.strip("-")
+
+    def _parse_version_from_data_dir(self, data_dir: Path) -> Optional[str]:
+        if not data_dir.exists():
+            return None
+        name = data_dir.name
+        if "_" in name:
+            parts = name.split("_", 1)
+            if len(parts) == 2:
+                return parts[1]
+        return None
+
     def is_installed(self, tool: Tool) -> bool:
         if tool.config_repo:
             config_path = self._get_config_dest(tool)
             return config_path.exists() if config_path else False
-        bin_path = Path(self.paths["quick_env_bin"]) / tool.name
-        return bin_path.exists()
+        link = self._get_link_path(tool)
+        return link.exists() and link.is_symlink()
 
     def get_version(self, tool: Tool) -> Optional[str]:
         if tool.config_repo:
             return self._get_git_version(tool)
-        bin_path = Path(self.paths["quick_env_bin"]) / tool.name
-        if bin_path.exists():
-            return self._get_binary_version(bin_path)
+        link = self._get_link_path(tool)
+        if link.is_symlink():
+            target = link.resolve()
+            if target.parent.exists():
+                return self._parse_version_from_data_dir(target.parent)
+            executable = target
+            if executable.exists():
+                return self._get_binary_version(executable)
         return None
 
     def _get_binary_version(self, bin_path: Path) -> Optional[str]:
@@ -310,6 +344,18 @@ class GitHubInstaller(Installer):
             pass
         return None
 
+    def _cleanup_old_versions(self, tool: Tool, current_version: str) -> None:
+        data_dir = Path(self.paths["quick_env_data"])
+        if not data_dir.exists():
+            return
+        clean_current = self._sanitize_dirname(current_version.lstrip("v"))
+        prefix = f"{tool.name}_"
+        for item in data_dir.iterdir():
+            if item.is_dir() and item.name.startswith(prefix):
+                version = self._parse_version_from_data_dir(item)
+                if version and version != clean_current:
+                    shutil.rmtree(item)
+
     def install(self, tool: Tool) -> InstallResult:
         if tool.config_repo:
             result = self._install_config(tool)
@@ -329,6 +375,8 @@ class GitHubInstaller(Installer):
         except Exception as e:
             return InstallResult(False, f"Failed to fetch release: {e}", self.name)
 
+        version = release.tag_name.lstrip("v")
+
         if tool.github_asset_patterns:
             asset = self.api.find_asset_by_platform(
                 release, tool.github_asset_patterns, self.platform.platform_name, self.platform.arch_name
@@ -347,13 +395,15 @@ class GitHubInstaller(Installer):
             if not download_file(asset.browser_download_url, archive_path):
                 return InstallResult(False, "Download failed", self.name)
 
-        bin_dir = Path(self.paths["quick_env_bin"])
-        bin_dir.mkdir(parents=True, exist_ok=True)
+        data_dir = self._get_data_dir(tool, version)
+        if data_dir.exists():
+            shutil.rmtree(data_dir)
+        data_dir.mkdir(parents=True, exist_ok=True)
 
         if asset.name.endswith(".tar.gz") or asset.name.endswith(".tgz"):
-            extracted = extract_tarball(archive_path, bin_dir)
+            extracted = extract_tarball(archive_path, data_dir)
         elif asset.name.endswith(".zip"):
-            extracted = extract_zip(archive_path, bin_dir)
+            extracted = extract_zip(archive_path, data_dir)
         else:
             return InstallResult(False, "Unsupported archive format", self.name)
 
@@ -367,14 +417,18 @@ class GitHubInstaller(Installer):
             return InstallResult(False, "Executable not found in archive", self.name)
 
         make_executable(executable)
-        dest = bin_dir / tool.name
 
-        if executable.resolve() == dest.resolve():
-            return InstallResult(True, f"Installed {tool.display_name} {release.tag_name}", self.name, release.tag_name)
+        bin_dir = Path(self.paths["quick_env_bin"])
+        bin_dir.mkdir(parents=True, exist_ok=True)
+        link_path = self._get_link_path(tool)
 
-        if dest.exists():
-            dest.unlink()
-        shutil.copy2(executable, dest)
+        if link_path.exists() or link_path.is_symlink():
+            link_path.unlink()
+
+        relative_target = os.path.relpath(executable, bin_dir)
+        os.symlink(relative_target, link_path)
+
+        self._cleanup_old_versions(tool, version)
 
         return InstallResult(True, f"Installed {tool.display_name} {release.tag_name}", self.name, release.tag_name)
 
@@ -414,11 +468,19 @@ class GitHubInstaller(Installer):
         return InstallResult(True, f"Installed {tool.display_name}", self.name)
 
     def uninstall(self, tool: Tool) -> InstallResult:
-        bin_dir = Path(self.paths["quick_env_bin"])
-        dest = bin_dir / tool.name
+        if tool.config_repo:
+            return InstallResult(False, "Use git_clone uninstall for config repos", self.name)
 
-        if dest.exists():
-            dest.unlink()
+        link_path = self._get_link_path(tool)
+        if link_path.exists() or link_path.is_symlink():
+            link_path.unlink()
+
+        data_dir = Path(self.paths["quick_env_data"])
+        if data_dir.exists():
+            prefix = f"{tool.name}_"
+            for item in data_dir.iterdir():
+                if item.is_dir() and item.name.startswith(prefix):
+                    shutil.rmtree(item)
 
         result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
         log_uninstall(tool.display_name, True, result.message)

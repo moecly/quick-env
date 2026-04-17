@@ -142,6 +142,7 @@ def get_env_paths() -> dict[str, str]:
         "quick_env_home": os.path.join(home, ".quick-env"),
         "quick_env_bin": os.path.join(home, ".quick-env", "bin"),
         "quick_env_cache": os.path.join(home, ".quick-env", "cache"),
+        "quick_env_data": os.path.join(home, ".quick-env", "data"),
         "quick_env_logs": os.path.join(home, ".quick-env", "logs"),
         "quick_env_config": os.path.join(home, ".quick-env", "configs"),
     }

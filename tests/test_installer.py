@@ -20,26 +20,7 @@ PROJECT_CONFIG = Path(__file__).parent.parent / "tools.toml"
 
 
 def load_project_config():
-    config = Config()
-    with open(PROJECT_CONFIG, "rb") as f:
-        data = tomllib.load(f)
-    from quick_env.config import ToolConfig
-    for name, tool_data in data.get("tools", {}).items():
-        config.tools[name] = ToolConfig(
-            name=tool_data.get("name", name),
-            display_name=tool_data.get("display_name", name),
-            description=tool_data.get("description", ""),
-            installable_by=tool_data.get("installable_by", []),
-            priority=tool_data.get("priority", {}),
-            package_name=tool_data.get("package_name"),
-            package_manager_commands=tool_data.get("package_manager_commands", {}),
-            repo=tool_data.get("repo"),
-            github_asset_patterns=tool_data.get("github_asset_patterns", {}),
-            config_repo=tool_data.get("config_repo"),
-            config_link=tool_data.get("config_link"),
-            aliases=tool_data.get("aliases", []),
-        )
-    return config
+    return Config.load_from(PROJECT_CONFIG)
 
 
 class TestInstallResult(unittest.TestCase):

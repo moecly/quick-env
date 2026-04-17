@@ -102,7 +102,7 @@ name = "tmux-config"
 display_name = "Tmux Config"
 description = "My tmux configuration"
 installable_by = ["git_clone"]
-config_repo = "moecly/tmux-config"
+config_repo = "moecly/tmux_config"
 config_link = "~/.tmux.conf"
 aliases = ["tmuxconf"]
 

@@ -18,12 +18,21 @@ class Config:
 
     @classmethod
     def load(cls, config_path: Optional[Path] = None) -> "Config":
+        """加载用户配置（~/.quick-env/configs/tools.toml）"""
         config = cls()
 
         user_config = config_path or cls._get_user_config_path()
         if user_config.exists():
             config._load_file(user_config)
 
+        return config
+
+    @classmethod
+    def load_from(cls, path: Path) -> "Config":
+        """从指定路径加载配置（用于测试）"""
+        config = cls()
+        if path.exists():
+            config._load_file(path)
         return config
 
     @staticmethod

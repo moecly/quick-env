@@ -27,6 +27,9 @@
 - [x] 配置编辑命令（`quick-env config edit`）
 - [x] 配置显示命令（`quick-env config show`）
 - [x] 自动创建必要目录（bin、cache、logs）
+- [x] 版本检测按优先级顺序
+- [x] 卸载只删 quick-env 的，不碰系统包
+- [x] 添加包管理器支持到 lazygit、fd、ripgrep
 
 ### 待实现
 
@@ -97,7 +100,9 @@ priority.package_manager = 30
 quick-env init              # 初始化配置
 quick-env install <tool>    # 安装工具
 quick-env install all       # 安装全部
-quick-env uninstall <tool>  # 卸载工具
+quick-env install <tool> --force  # 强制重新安装
+quick-env install <tool> -m github # 指定安装方式
+quick-env uninstall <tool>  # 卸载工具（只删 quick-env 的）
 quick-env upgrade <tool>    # 升级工具
 quick-env list              # 列出已安装
 quick-env list all          # 列出全部
@@ -116,9 +121,25 @@ quick-env config edit       # 编辑配置
 eval "$(quick-env --show-completion)"
 ```
 
+## 核心逻辑
+
+### 安装逻辑
+1. 按 `installable_by` + `priority` 选择安装方式
+2. 已安装的工具会跳过安装（使用 `--force` 强制重新安装）
+3. 下载到 cache，解压后复制到 bin
+
+### 版本检测逻辑
+1. 按 `installable_by` + `priority` 顺序检测
+2. 优先用配置中的优先级，没有则用默认值
+
+### 卸载逻辑
+- 只删除 `~/.quick-env/bin/` 中的文件
+- 不影响系统包管理器安装的工具
+
 ## 注意事项
 
 1. `installable_by` 只是声明支持哪些安装方式，实际选择由 `get_best_installer()` 按优先级决定
-2. `{version}` 在 asset_pattern 中会被替换为实际版本号
+2. `{version}` 在 github_asset_patterns 中会被替换为实际版本号
 3. asset 名称区分大小写，需与 GitHub Release 页面一致
 4. 日志保留 7 天，按天存储在 `~/.quick-env/logs/` 目录
+5. 配置文件修改后需要重启或重新加载

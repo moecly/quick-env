@@ -97,25 +97,24 @@ def install(
 def uninstall(
     tools: List[str] = typer.Argument(..., help="Tool(s) to uninstall."),
 ):
-    """Uninstall tools."""
+    """Uninstall tools from ~/.quick-env."""
     config = get_config()
+    installer = InstallerFactory.get_installer("github")
+
     for tool_name in tools:
         tool = config.get_tool(tool_name)
         if not tool:
             console.print(f"[red]Unknown tool: {tool_name}[/red]")
             continue
 
-        for method_name in tool.installable_by:
-            installer = InstallerFactory.get_installer(method_name)
-            if installer and installer.is_installed(tool):
-                result = installer.uninstall(tool)
-                if result.success:
-                    console.print(f"[green]✓ {result.message}[/green]")
-                else:
-                    console.print(f"[red]✗ {result.message}[/red]")
-                break
+        if installer.is_installed(tool):
+            result = installer.uninstall(tool)
+            if result.success:
+                console.print(f"[green]✓ {result.message}[/green]")
+            else:
+                console.print(f"[red]✗ {result.message}[/red]")
         else:
-            console.print(f"[yellow]{tool.display_name} is not installed[/yellow]")
+            console.print(f"[yellow]{tool.display_name} is not installed in quick-env[/yellow]")
 
 
 @app.command()

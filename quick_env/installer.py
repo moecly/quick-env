@@ -368,6 +368,10 @@ class GitHubInstaller(Installer):
 
         make_executable(executable)
         dest = bin_dir / tool.name
+
+        if executable.resolve() == dest.resolve():
+            return InstallResult(True, f"Installed {tool.display_name} {release.tag_name}", self.name, release.tag_name)
+
         if dest.exists():
             dest.unlink()
         shutil.copy2(executable, dest)

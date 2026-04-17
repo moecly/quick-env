@@ -83,16 +83,18 @@ def extract_tarball(archive: Path, dest: Path) -> Optional[Path]:
         dest.mkdir(parents=True, exist_ok=True)
         with tarfile.open(archive, "r:*") as tf:
             members = tf.getmembers()
-            if len(members) == 1 and members[0].isdir():
-                tf.extractall(dest)
+            if not members:
+                return None
+
+            names = [m.name for m in members]
+            common_prefix = os.path.commonpath(names) if len(names) > 1 else ""
+
+            tf.extractall(dest)
+
+            if common_prefix and common_prefix != ".":
+                return dest / common_prefix
             else:
-                for member in members:
-                    if "/" in member.name:
-                        parts = member.name.split("/")
-                        if parts[0] != members[0].name.split("/")[0]:
-                            member.name = members[0].name.split("/")[0] + "/" + member.name
-                tf.extractall(dest)
-        return dest / members[0].name
+                return dest
     except Exception as e:
         print(f"Extract failed: {e}")
         return None
@@ -103,15 +105,17 @@ def extract_zip(archive: Path, dest: Path) -> Optional[Path]:
         dest.mkdir(parents=True, exist_ok=True)
         with zipfile.ZipFile(archive, "r") as zf:
             members = zf.namelist()
-            if len(members) == 1 and members[0].endswith("/"):
-                zf.extractall(dest)
+            if not members:
+                return None
+
+            common_prefix = os.path.commonpath(members) if len(members) > 1 else ""
+
+            zf.extractall(dest)
+
+            if common_prefix and common_prefix != ".":
+                return dest / common_prefix
             else:
-                base = members[0].split("/")[0]
-                for member in members:
-                    if not member.startswith(base):
-                        fixed = base + "/" + member
-                        zf.extract(member, dest)
-            return dest / base
+                return dest
     except Exception as e:
         print(f"Extract failed: {e}")
         return None

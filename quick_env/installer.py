@@ -29,7 +29,7 @@ def run_subprocess(*args, **kwargs) -> subprocess.CompletedProcess:
     kwargs.setdefault("text", True)
     kwargs.setdefault("encoding", "utf-8")
     kwargs.setdefault("errors", "replace")
-    return run_subprocess(*args, **kwargs)
+    return subprocess.run(*args, **kwargs)
 
 
 @dataclass
@@ -895,6 +895,10 @@ class DotfileInstaller(Installer):
             dest_path = Path(os.path.expanduser(dest_path_str))
 
             if src_path.exists():
+                if self._should_exclude(
+                    str(src_path.relative_to(repo_path)), tool.exclude
+                ):
+                    continue
                 self._create_link(src_path, dest_path)
             else:
                 matching = self._find_matching_files(
@@ -909,10 +913,14 @@ class DotfileInstaller(Installer):
                         for match in matching:
                             rel_path = match.relative_to(repo_path)
                             target = dest_path / rel_path.name
-                            if match.is_dir():
+                            if self._should_exclude(str(rel_path), tool.exclude):
                                 continue
                             self._create_link(match, target)
                     else:
+                        if self._should_exclude(
+                            str(matching[0].relative_to(repo_path)), tool.exclude
+                        ):
+                            continue
                         self._create_link(matching[0], dest_path)
 
     def uninstall(self, tool: Tool) -> InstallResult:

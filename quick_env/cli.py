@@ -12,7 +12,7 @@ from rich.table import Table
 from rich import print as rprint
 
 from .platform import detect_platform, detect_package_manager, get_env_paths, command_exists
-from .config import get_config
+from .config import get_config, Config
 from .installer import InstallerFactory, InstallResult, get_version_info
 
 app = typer.Typer(
@@ -35,7 +35,10 @@ def main(
     ctx: typer.Context,
     version: Optional[bool] = typer.Option(None, "--version", "-v", callback=version_callback, is_eager=True),
 ):
-    pass
+    if not Config.is_initialized():
+        console.print("[cyan]Initializing config...[/cyan]")
+        Config.init_config()
+        console.print(f"[green]✓ Config created[/green]\n")
 
 
 @app.command()
@@ -238,6 +241,19 @@ def info(
 
 
 @app.command()
+def init():
+    """Initialize configuration in ~/.quick-env."""
+    if Config.is_initialized():
+        console.print(f"[yellow]Config already exists[/yellow]")
+        console.print(f"  Path: {Config._get_user_config_path()}")
+    else:
+        path = Config.init_config()
+        console.print(f"[green]✓ Config created[/green]")
+        console.print(f"  Path: {path}")
+        console.print(f"\n[cyan]Run 'quick-env doctor' to check setup[/cyan]")
+
+
+@app.command()
 def doctor():
     """Check system requirements."""
     console.print("[bold]System Check[/bold]\n")
@@ -270,6 +286,14 @@ def doctor():
         p = Path(value)
         exists = "[green]✓[/green]" if p.exists() else "[red]✗[/red]"
         console.print(f"{exists} {key}: {value}")
+
+    console.print(f"\n[bold]Configuration[/bold]")
+    config_path = Config._get_user_config_path()
+    config_exists = config_path.exists()
+    exists_icon = "[green]✓[/green]" if config_exists else "[yellow]![/yellow]"
+    console.print(f"{exists_icon} Config: {config_path}")
+    if not config_exists:
+        console.print(f"[cyan]Run 'quick-env init' to create config[/cyan]")
 
     quick_env_bin = paths["quick_env_bin"]
     console.print(f"\n[bold yellow]PATH Configuration[/bold yellow]")

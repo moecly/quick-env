@@ -2,6 +2,8 @@
 
 import unittest
 from unittest.mock import patch, MagicMock
+from pathlib import Path
+import tomllib
 from quick_env.installer import (
     GitHubInstaller,
     PackageManagerInstaller,
@@ -11,7 +13,33 @@ from quick_env.installer import (
     SourceInfo,
     ToolDetection,
 )
-from quick_env.config import get_config
+from quick_env.config import Config
+
+
+PROJECT_CONFIG = Path(__file__).parent.parent / "tools.toml"
+
+
+def load_project_config():
+    config = Config()
+    with open(PROJECT_CONFIG, "rb") as f:
+        data = tomllib.load(f)
+    from quick_env.config import ToolConfig
+    for name, tool_data in data.get("tools", {}).items():
+        config.tools[name] = ToolConfig(
+            name=tool_data.get("name", name),
+            display_name=tool_data.get("display_name", name),
+            description=tool_data.get("description", ""),
+            installable_by=tool_data.get("installable_by", []),
+            priority=tool_data.get("priority", {}),
+            package_name=tool_data.get("package_name"),
+            package_manager_commands=tool_data.get("package_manager_commands", {}),
+            repo=tool_data.get("repo"),
+            github_asset_patterns=tool_data.get("github_asset_patterns", {}),
+            config_repo=tool_data.get("config_repo"),
+            config_link=tool_data.get("config_link"),
+            aliases=tool_data.get("aliases", []),
+        )
+    return config
 
 
 class TestInstallResult(unittest.TestCase):
@@ -41,12 +69,12 @@ class TestSourceInfo(unittest.TestCase):
     def test_source_info_creation(self):
         source = SourceInfo(
             name="github",
-            path="/home/user/.local/quick-env/bin/lazygit",
+            path="/home/user/.quick-env/bin/lazygit",
             version="v1.0.0",
             is_current=True,
         )
         self.assertEqual(source.name, "github")
-        self.assertEqual(source.path, "/home/user/.local/quick-env/bin/lazygit")
+        self.assertEqual(source.path, "/home/user/.quick-env/bin/lazygit")
         self.assertEqual(source.version, "v1.0.0")
         self.assertTrue(source.is_current)
 
@@ -64,7 +92,7 @@ class TestToolDetection(unittest.TestCase):
         detection.installed = True
         detection.sources = [
             SourceInfo(name="system", path="/usr/bin/tmux", version="3.3a"),
-            SourceInfo(name="github", path="/home/user/.local/quick-env/bin/tmux", version="3.5"),
+            SourceInfo(name="github", path="/home/user/.quick-env/bin/tmux", version="3.5"),
         ]
         detection.current_source = "system"
 
@@ -165,22 +193,25 @@ class TestInstallerFactory(unittest.TestCase):
         self.assertIsNone(installer)
 
     def test_get_best_installer_for_lazygit(self):
-        config = get_config()
+        config = load_project_config()
         tool = config.get_tool("lazygit")
+        self.assertIsNotNone(tool)
         installer = InstallerFactory.get_best_installer(tool)
         self.assertIsNotNone(installer)
         self.assertEqual(installer.name, "github")
 
     def test_get_best_installer_for_tmux_config(self):
-        config = get_config()
+        config = load_project_config()
         tool = config.get_tool("tmux-config")
+        self.assertIsNotNone(tool)
         installer = InstallerFactory.get_best_installer(tool)
         self.assertIsNotNone(installer)
         self.assertEqual(installer.name, "git_clone")
 
     def test_detect_tool_returns_detection(self):
-        config = get_config()
+        config = load_project_config()
         tool = config.get_tool("lazygit")
+        self.assertIsNotNone(tool)
         detection = InstallerFactory.detect_tool(tool)
         self.assertIsInstance(detection, ToolDetection)
         self.assertEqual(detection.tool_name, "lazygit")

@@ -1,7 +1,7 @@
 """Configuration loading module."""
 
-import os
 import shutil
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -20,21 +20,11 @@ class Config:
     def load(cls, config_path: Optional[Path] = None) -> "Config":
         config = cls()
 
-        # 加载内置配置
-        built_in = cls._get_built_in_config()
-        if built_in.exists():
-            config._load_file(built_in)
-
-        # 加载用户配置（覆盖内置）
         user_config = config_path or cls._get_user_config_path()
         if user_config.exists():
             config._load_file(user_config)
 
         return config
-
-    @staticmethod
-    def _get_built_in_config() -> Path:
-        return Path(__file__).parent.parent / "tools.toml"
 
     @staticmethod
     def _get_user_config_path() -> Path:
@@ -46,16 +36,26 @@ class Config:
         return Path.home() / ".quick-env"
 
     @staticmethod
+    def is_initialized() -> bool:
+        """检查配置是否已初始化"""
+        return Config._get_user_config_path().exists()
+
+    @staticmethod
+    def get_project_config_path() -> Path:
+        """获取项目内置配置路径"""
+        return Path(__file__).parent.parent / "tools.toml"
+
+    @staticmethod
     def init_config() -> Path:
         """初始化用户配置目录和文件"""
         user_config = Config._get_user_config_path()
         user_home = Config._get_user_home_path()
 
-        if not user_config.exists():
-            user_home.mkdir(parents=True, exist_ok=True)
-            user_config.parent.mkdir(parents=True, exist_ok=True)
+        user_home.mkdir(parents=True, exist_ok=True)
+        user_config.parent.mkdir(parents=True, exist_ok=True)
 
-            built_in = Config._get_built_in_config()
+        if not user_config.exists():
+            built_in = Config.get_project_config_path()
             if built_in.exists():
                 shutil.copy2(built_in, user_config)
 
@@ -64,8 +64,13 @@ class Config:
     def _load_file(self, path: Path):
         import tomllib
 
-        with open(path, "rb") as f:
-            data = tomllib.load(f)
+        try:
+            with open(path, "rb") as f:
+                data = tomllib.load(f)
+        except Exception as e:
+            print(f"\n[red]Config error: {e}[/red]")
+            print(f"[red]File: {path}[/red]")
+            sys.exit(1)
 
         for name, tool_data in data.get("tools", {}).items():
             self.tools[name] = ToolConfig(

@@ -1,15 +1,38 @@
 """Tests for tools module."""
 
 import unittest
+import tomllib
+from pathlib import Path
 from quick_env.tools import Tool
-from quick_env.config import get_config
+from quick_env.config import Config, reload_config
+
+
+PROJECT_CONFIG = Path(__file__).parent.parent / "tools.toml"
 
 
 class TestToolDefinition(unittest.TestCase):
     @classmethod
     def setUpClass(cls):
-        cls.config = get_config()
-        cls.tools = cls.config.get_all_tools()
+        cls.config = Config()
+        with open(PROJECT_CONFIG, "rb") as f:
+            data = tomllib.load(f)
+        for name, tool_data in data.get("tools", {}).items():
+            from quick_env.config import ToolConfig
+            cls.config.tools[name] = ToolConfig(
+                name=tool_data.get("name", name),
+                display_name=tool_data.get("display_name", name),
+                description=tool_data.get("description", ""),
+                installable_by=tool_data.get("installable_by", []),
+                priority=tool_data.get("priority", {}),
+                package_name=tool_data.get("package_name"),
+                package_manager_commands=tool_data.get("package_manager_commands", {}),
+                repo=tool_data.get("repo"),
+                github_asset_patterns=tool_data.get("github_asset_patterns", {}),
+                config_repo=tool_data.get("config_repo"),
+                config_link=tool_data.get("config_link"),
+                aliases=tool_data.get("aliases", []),
+            )
+        cls.tools = cls.config.tools
 
     def test_lazygit_definition(self):
         tool = self.tools["lazygit"]
@@ -61,7 +84,25 @@ class TestToolDefinition(unittest.TestCase):
 
 class TestGetTool(unittest.TestCase):
     def setUp(self):
-        self.config = get_config()
+        self.config = Config()
+        with open(PROJECT_CONFIG, "rb") as f:
+            data = tomllib.load(f)
+        from quick_env.config import ToolConfig
+        for name, tool_data in data.get("tools", {}).items():
+            self.config.tools[name] = ToolConfig(
+                name=tool_data.get("name", name),
+                display_name=tool_data.get("display_name", name),
+                description=tool_data.get("description", ""),
+                installable_by=tool_data.get("installable_by", []),
+                priority=tool_data.get("priority", {}),
+                package_name=tool_data.get("package_name"),
+                package_manager_commands=tool_data.get("package_manager_commands", {}),
+                repo=tool_data.get("repo"),
+                github_asset_patterns=tool_data.get("github_asset_patterns", {}),
+                config_repo=tool_data.get("config_repo"),
+                config_link=tool_data.get("config_link"),
+                aliases=tool_data.get("aliases", []),
+            )
 
     def test_get_tool_by_name(self):
         tool = self.config.get_tool("lazygit")
@@ -80,7 +121,25 @@ class TestGetTool(unittest.TestCase):
 
 class TestGetAllTools(unittest.TestCase):
     def setUp(self):
-        self.config = get_config()
+        self.config = Config()
+        with open(PROJECT_CONFIG, "rb") as f:
+            data = tomllib.load(f)
+        from quick_env.config import ToolConfig
+        for name, tool_data in data.get("tools", {}).items():
+            self.config.tools[name] = ToolConfig(
+                name=tool_data.get("name", name),
+                display_name=tool_data.get("display_name", name),
+                description=tool_data.get("description", ""),
+                installable_by=tool_data.get("installable_by", []),
+                priority=tool_data.get("priority", {}),
+                package_name=tool_data.get("package_name"),
+                package_manager_commands=tool_data.get("package_manager_commands", {}),
+                repo=tool_data.get("repo"),
+                github_asset_patterns=tool_data.get("github_asset_patterns", {}),
+                config_repo=tool_data.get("config_repo"),
+                config_link=tool_data.get("config_link"),
+                aliases=tool_data.get("aliases", []),
+            )
 
     def test_get_all_tools_returns_dict(self):
         tools = self.config.get_all_tools()
@@ -95,8 +154,26 @@ class TestGetAllTools(unittest.TestCase):
 
 class TestToolCategories(unittest.TestCase):
     def setUp(self):
-        self.config = get_config()
-        self.tools = self.config.get_all_tools()
+        self.config = Config()
+        with open(PROJECT_CONFIG, "rb") as f:
+            data = tomllib.load(f)
+        from quick_env.config import ToolConfig
+        for name, tool_data in data.get("tools", {}).items():
+            self.config.tools[name] = ToolConfig(
+                name=tool_data.get("name", name),
+                display_name=tool_data.get("display_name", name),
+                description=tool_data.get("description", ""),
+                installable_by=tool_data.get("installable_by", []),
+                priority=tool_data.get("priority", {}),
+                package_name=tool_data.get("package_name"),
+                package_manager_commands=tool_data.get("package_manager_commands", {}),
+                repo=tool_data.get("repo"),
+                github_asset_patterns=tool_data.get("github_asset_patterns", {}),
+                config_repo=tool_data.get("config_repo"),
+                config_link=tool_data.get("config_link"),
+                aliases=tool_data.get("aliases", []),
+            )
+        self.tools = self.config.tools
 
     @property
     def binary_tools(self):
@@ -127,7 +204,25 @@ class TestToolCategories(unittest.TestCase):
 
 class TestToolMatches(unittest.TestCase):
     def setUp(self):
-        self.config = get_config()
+        self.config = Config()
+        with open(PROJECT_CONFIG, "rb") as f:
+            data = tomllib.load(f)
+        from quick_env.config import ToolConfig
+        for name, tool_data in data.get("tools", {}).items():
+            self.config.tools[name] = ToolConfig(
+                name=tool_data.get("name", name),
+                display_name=tool_data.get("display_name", name),
+                description=tool_data.get("description", ""),
+                installable_by=tool_data.get("installable_by", []),
+                priority=tool_data.get("priority", {}),
+                package_name=tool_data.get("package_name"),
+                package_manager_commands=tool_data.get("package_manager_commands", {}),
+                repo=tool_data.get("repo"),
+                github_asset_patterns=tool_data.get("github_asset_patterns", {}),
+                config_repo=tool_data.get("config_repo"),
+                config_link=tool_data.get("config_link"),
+                aliases=tool_data.get("aliases", []),
+            )
 
     def test_matches_by_name(self):
         tool = self.config.get_tool("lazygit")

@@ -128,6 +128,6 @@ installable_by = ["dotfile"]
 config_repo = "moecly/nvim-config"
 config_branch = "main"
 links = [
-    { glob = "nvim", to = "~/.config/nvim" },
+    { glob = "*", to = "~/.config/nvim/" },
 ]
-exclude = ["*.md", "README.md", ".git"]
+exclude = ["*.md", "README.md", ".git", "LICENSE", "lazyvim.json", "lazy-lock.json", "stylua.toml"]

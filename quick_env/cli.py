@@ -3,6 +3,8 @@
 from __future__ import annotations
 
 import os
+import re
+import shutil
 import sys
 from pathlib import Path
 from typing import Optional, List
@@ -19,7 +21,12 @@ from .platform import (
     command_exists,
 )
 from .config import get_config, Config
-from .installer import InstallerFactory, InstallResult, get_version_info
+from .installer import (
+    InstallerFactory,
+    InstallResult,
+    get_version_info,
+    get_command_name,
+)
 
 app = typer.Typer(
     name="quick-env",
@@ -349,7 +356,9 @@ def init():
 
 
 @app.command()
-def doctor():
+def doctor(
+    fix: bool = typer.Option(False, "--fix", help="Auto-fix detected issues"),
+):
     """Check system requirements."""
     import subprocess
     from .platform import command_exists, detect_platform
@@ -450,6 +459,7 @@ def doctor():
     console.print("[bold]4. Binary Tools Check[/bold]")
     binary_passed = 0
     binary_total = 0
+    binary_issues = []
 
     if config_ok:
         config = Config.load_from(config_path)
@@ -460,37 +470,80 @@ def doctor():
         else:
             for tool in binary_tools:
                 binary_total += 1
-                installer = InstallerFactory.get_best_installer(tool)
+                cmd_name = get_command_name(tool)
+                system_path = shutil.which(cmd_name)
+                issue = None
 
-                if installer and installer.is_installed(tool):
-                    version = installer.get_version(tool)
-                    bin_path = Path(paths["quick_env_bin"]) / tool.name
-                    is_symlink = bin_path.is_symlink()
-                    target_exists = (
-                        bin_path.resolve().exists() if is_symlink else bin_path.exists()
-                    )
+                if system_path:
+                    version = None
+                    try:
+                        result = subprocess.run(
+                            [cmd_name, "--version"],
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                        )
+                        if result.returncode == 0:
+                            output = result.stdout + result.stderr
+                            match = re.search(r"(\d+\.\d+\.?\d*)", output)
+                            if match:
+                                version = match.group(1)
+                    except Exception:
+                        pass
 
-                    if target_exists:
-                        binary_passed += 1
-                        icon = "[green]✓[/green]"
-                        status = "OK"
-                    else:
-                        icon = "[red]✗[/red]"
-                        version = "-"
-                        status = "Broken symlink" if is_symlink else "Not found"
-
-                    console.print(
-                        f"  {icon} {tool.name:<12} {version or '-':<10} {status}"
-                    )
+                    binary_passed += 1
+                    icon = "[green]✓[/green]"
+                    source = "system"
+                    status = "OK"
+                    version_str = f"{version or '-'}"
                 else:
-                    console.print(
-                        f"  [yellow]![/yellow] {tool.name:<12} -          Not installed"
-                    )
+                    installer = InstallerFactory.get_best_installer(tool)
+                    quick_env_bin = Path(paths["quick_env_bin"]) / tool.name
+
+                    if quick_env_bin.exists():
+                        is_symlink = quick_env_bin.is_symlink()
+                        target_exists = (
+                            quick_env_bin.resolve().exists()
+                            if is_symlink
+                            else quick_env_bin.exists()
+                        )
+
+                        if target_exists:
+                            binary_passed += 1
+                            version = installer.get_version(tool) if installer else None
+                            icon = "[green]✓[/green]"
+                            source = "quick-env"
+                            status = "OK"
+                            version_str = f"{version or '-'}"
+                        else:
+                            icon = "[red]✗[/red]"
+                            source = "quick-env"
+                            version_str = "-"
+                            if is_symlink:
+                                status = "Broken symlink"
+                                issue = ("broken_symlink", tool, quick_env_bin)
+                            else:
+                                status = "Not found"
+                                issue = ("not_found", tool, quick_env_bin)
+                    else:
+                        icon = "[yellow]![/yellow]"
+                        source = "-"
+                        version_str = "-"
+                        status = "Not installed"
+                        issue = ("not_installed", tool, None)
+
+                console.print(
+                    f"  {icon} {tool.name:<12} {version_str:<10} {status:<20} ({source})"
+                )
+
+                if issue:
+                    binary_issues.append(issue)
     console.print()
 
     console.print("[bold]5. Dotfiles Check[/bold]")
     dotfile_passed = 0
     dotfile_total = 0
+    dotfile_issues = []
 
     if config_ok:
         config = Config.load_from(config_path)
@@ -560,11 +613,13 @@ def doctor():
                     if dest.is_symlink() and not dest.exists():
                         link_results.append(("✗", link.to, "Broken symlink"))
                         has_error = True
+                        dotfile_issues.append((tool, "broken_link", link.to))
                     elif dest.exists():
                         link_results.append(("✓", link.to, "OK"))
                     else:
                         link_results.append(("✗", link.to, "Not found"))
                         has_error = True
+                        dotfile_issues.append((tool, "broken_link", link.to))
 
                 if has_error:
                     icon = "[red]✗[/red]"
@@ -584,6 +639,7 @@ def doctor():
                     console.print(
                         f"      ├─ Repo:    {errors[0] if errors else 'Not found'}"
                     )
+                    dotfile_issues.append((tool, "not_cloned", None))
 
                 if link_results:
                     console.print(f"      ├─ Links:   {len(link_results)}")
@@ -625,6 +681,115 @@ def doctor():
         console.print(f"  Add to PATH:")
         console.print(f'    export PATH="{paths["quick_env_bin"]}:$PATH"')
         console.print()
+
+    if fix:
+        console.print()
+        console.print("=" * 50)
+        console.print("[bold]Auto-Fix[/bold]")
+        console.print("=" * 50)
+
+        fixed_count = 0
+        error_count = 0
+
+        for key, path in paths.items():
+            if key.startswith("quick_env_"):
+                p = Path(path)
+                if not p.exists():
+                    try:
+                        p.mkdir(parents=True, exist_ok=True)
+                        console.print(f"  [green]✓[/green] Created: {key}")
+                        fixed_count += 1
+                    except Exception as e:
+                        console.print(f"  [red]✗[/red] Failed to create {key}: {e}")
+                        error_count += 1
+
+        for issue_type, tool, path in binary_issues:
+            if issue_type == "broken_symlink":
+                try:
+                    if path and path.is_symlink():
+                        path.unlink()
+                        console.print(
+                            f"  [green]✓[/green] Removed broken symlink: {path}"
+                        )
+                        fixed_count += 1
+                except Exception as e:
+                    console.print(f"  [red]✗[/red] Failed to remove {path}: {e}")
+                    error_count += 1
+            elif issue_type == "not_installed":
+                installer = InstallerFactory.get_best_installer(tool)
+                if installer:
+                    try:
+                        console.print(
+                            f"  [cyan]Installing {tool.display_name}...[/cyan]"
+                        )
+                        result = installer.install(tool)
+                        if result.success:
+                            console.print(
+                                f"  [green]✓[/green] Installed {tool.display_name}"
+                            )
+                            fixed_count += 1
+                        else:
+                            console.print(
+                                f"  [red]✗[/red] Failed to install {tool.display_name}: {result.message}"
+                            )
+                            error_count += 1
+                    except Exception as e:
+                        console.print(
+                            f"  [red]✗[/red] Failed to install {tool.display_name}: {e}"
+                        )
+                        error_count += 1
+
+        for tool, issue_type, detail in dotfile_issues:
+            if issue_type == "broken_link":
+                dest_path = Path(os.path.expanduser(detail))
+                try:
+                    if dest_path.is_symlink():
+                        dest_path.unlink()
+                    if tool.links:
+                        for link in tool.links:
+                            repo_path = Path(paths["quick_env_dotfiles"]) / tool.name
+
+                            matching_files = list(repo_path.glob(link.glob))
+                            if matching_files:
+                                dest = Path(os.path.expanduser(link.to))
+                                dest.parent.mkdir(parents=True, exist_ok=True)
+                                os.symlink(repo_path, dest)
+                                console.print(f"  [green]✓[/green] Fixed link: {dest}")
+                                fixed_count += 1
+                                break
+                            else:
+                                console.print(
+                                    f"  [yellow]![/yellow] No files matched for {link.glob}"
+                                )
+                except Exception as e:
+                    console.print(f"  [red]✗[/red] Failed to fix link {detail}: {e}")
+                    error_count += 1
+            elif issue_type == "not_cloned":
+                installer = InstallerFactory.get_installer("dotfile")
+                if installer:
+                    try:
+                        console.print(f"  [cyan]Cloning {tool.display_name}...[/cyan]")
+                        result = installer.install(tool)
+                        if result.success:
+                            console.print(
+                                f"  [green]✓[/green] Cloned {tool.display_name}"
+                            )
+                            fixed_count += 1
+                        else:
+                            console.print(
+                                f"  [red]✗[/red] Failed to clone {tool.display_name}: {result.message}"
+                            )
+                            error_count += 1
+                    except Exception as e:
+                        console.print(
+                            f"  [red]✗[/red] Failed to clone {tool.display_name}: {e}"
+                        )
+                        error_count += 1
+
+        console.print()
+        console.print(
+            f"[bold]Fix Summary:[/bold] {fixed_count} fixed, {error_count} failed"
+        )
 
     console.print("=" * 50)
 

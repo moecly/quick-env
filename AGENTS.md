@@ -215,9 +215,9 @@ Time: 2026-04-17 22:00:00
       Tools: 7 (binary: 5, dotfile: 2)
 
 4. Binary Tools Check
-  ✓ lazygit      v0.40.0    OK
-  ✓ fd           v8.4.7     OK
-  ✗ tmux         -          Not found
+  ✓ lazygit      v0.40.0    OK                   (quick-env)
+  ✓ fd           v8.4.7     OK                   (quick-env)
+  ✓ tmux         3.3a       OK                   (system)
 
 5. Dotfiles Check
   ✓ tmux-config (Clean)
@@ -225,11 +225,11 @@ Time: 2026-04-17 22:00:00
       ├─ Branch:  main
       ├─ Links:   1
           ├─ ✓ ~/.tmux.conf
-  ✗ nvim-config (Clean)
+  ✓ nvim-config (Clean)
       ├─ Repo:    ~/.quick-env/dotfiles/nvim-config/
       ├─ Branch:  main
       ├─ Links:   1
-          ├─ ✗ ~/.config/nvim
+          ├─ ✓ ~/.config/nvim/
 
 6. PATH Check
   ! ~/.quick-env/bin is NOT in PATH
@@ -239,14 +239,34 @@ Summary
   System:     4/4 passed
   Directory:  7/7 passed
   Config:     OK
-  Binary:     4/5 passed
-  Dotfiles:   1/2 passed
+  Binary:     3/3 passed
+  Dotfiles:   2/2 passed
 
 Action Required
   Add to PATH:
     export PATH="$HOME/.quick-env/bin:$PATH"
 
 ==================================================
+
+### Auto-Fix 功能
+
+使用 `--fix` 参数自动修复检测到的问题：
+
+```bash
+quick-env doctor --fix
+```
+
+**可修复的项目**：
+
+| 检查项 | 修复操作 |
+|--------|----------|
+| 目录缺失 | 创建缺失的目录 |
+| Binary broken symlink | 删除并重建软链接 |
+| Binary 未安装 | 使用最佳安装器安装 |
+| Dotfiles 链接 broken | 删除并重建链接 |
+| Dotfiles 未克隆 | git clone + 创建链接 |
+
+**注意**：PATH 配置需要用户手动添加，不会自动修改用户 shell 配置。
 ```
 
 ## 目录结构
@@ -398,6 +418,7 @@ quick-env install <tool>    # 安装工具
 quick-env install all       # 安装全部（并发）
 quick-env install <tool> --force  # 强制重新安装
 quick-env install <tool> -m github # 指定安装方式
+quick-env install all -P     # 并行安装全部
 quick-env uninstall <tool>  # 卸载工具（只删 quick-env 的）
 quick-env upgrade <tool>    # 升级工具
 quick-env list              # 列出已安装
@@ -405,6 +426,7 @@ quick-env list all          # 列出全部
 quick-env list --updates    # 显示有更新的
 quick-env info <tool>       # 查看详情
 quick-env doctor            # 系统检查
+quick-env doctor --fix      # 自动修复检测到的问题
 quick-env config show       # 显示配置
 quick-env config edit       # 编辑配置
 ```

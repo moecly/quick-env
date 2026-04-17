@@ -69,8 +69,8 @@ class TestToolDefinition(unittest.TestCase):
         self.assertEqual(tool.config_repo, "moecly/nvim-config")
         self.assertEqual(tool.config_branch, "main")
         self.assertEqual(len(tool.links), 1)
-        self.assertEqual(tool.links[0].glob, "nvim")
-        self.assertEqual(tool.links[0].to, "~/.config/nvim")
+        self.assertEqual(tool.links[0].glob, "*")
+        self.assertEqual(tool.links[0].to, "~/.config/nvim/")
 
 
 class TestGetTool(unittest.TestCase):

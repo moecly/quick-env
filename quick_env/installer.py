@@ -358,7 +358,9 @@ class GitHubInstaller(Installer):
             return InstallResult(False, "Unsupported archive format", self.name)
 
         if not extracted:
-            return InstallResult(False, "Extraction failed", self.name)
+            if archive_path.exists():
+                archive_path.unlink()
+            return InstallResult(False, "Extraction failed, cache cleared", self.name)
 
         executable = find_executable_in_dir(extracted, tool.name)
         if not executable:
@@ -626,6 +628,18 @@ class InstallerFactory:
             cls._instances[name] = installers[name]()
             return cls._instances[name]
         return None
+
+    @classmethod
+    def is_tool_available_in_system(cls, tool: Tool) -> bool:
+        """检查工具命令是否在系统 PATH 中可用（不考虑 quick-env/bin）"""
+        cmd_name = get_command_name(tool)
+        which_path = shutil.which(cmd_name)
+        if not which_path:
+            return False
+
+        quick_env_bin = Path(get_env_paths()["quick_env_bin"]).resolve()
+        tool_path = Path(which_path).resolve()
+        return tool_path.parent.resolve() != quick_env_bin
 
     @classmethod
     def get_all_installers(cls) -> List[Installer]:

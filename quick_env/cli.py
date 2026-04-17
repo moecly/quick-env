@@ -75,8 +75,14 @@ def install(
                 console.print(f"[red]No installer available for {tool.display_name}[/red]")
                 continue
 
-        if installer.is_installed(tool) and not force:
-            console.print(f"[yellow]{tool.display_name} is already installed[/yellow]")
+        is_in_quick_env = installer.is_installed(tool)
+        is_in_system = InstallerFactory.is_tool_available_in_system(tool)
+
+        if is_in_quick_env and not force:
+            console.print(f"[yellow]{tool.display_name} is already installed in quick-env[/yellow]")
+            continue
+        elif is_in_system and not force:
+            console.print(f"[yellow]{tool.display_name} is already installed in system[/yellow]")
             continue
 
         console.print(f"[cyan]Installing {tool.display_name} via {installer.name}...[/cyan]")

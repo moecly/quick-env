@@ -15,6 +15,11 @@ class Platform:
     arch: str
     platform_name: str
     arch_name: str
+    platform_arch: str = ""  # 如 windows_x86_64, linux_arm64
+
+    def __post_init__(self):
+        if not self.platform_arch:
+            self.platform_arch = f"{self.platform_name}_{self.arch_name}"
 
     @property
     def is_windows(self) -> bool:
@@ -273,6 +278,7 @@ def detect_platform() -> Platform:
         arch=arch,
         platform_name=platform_name,
         arch_name=arch_name,
+        platform_arch=f"{platform_name}_{arch_name}",
     )
 
 

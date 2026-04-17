@@ -105,21 +105,35 @@ class Tool:
             return self.priority[key]
         return self.priority.get(installer_name, default)
 
-    def is_platform_supported(self, platform: str) -> bool:
+    def is_platform_supported(self, platform: str, platform_arch: str = "") -> bool:
         """检查工具在平台上是否支持（默认 True）"""
         if not self.supported_on:
             return True
+        # 1. 最具体：platform_arch (如 windows_x86_64)
+        if platform_arch and platform_arch in self.supported_on:
+            return self.supported_on[platform_arch]
+        # 2. platform (如 windows)
         return self.supported_on.get(platform, True)
 
-    def is_installer_supported(self, platform: str, installer_name: str) -> bool:
+    def is_installer_supported(
+        self, platform: str, installer_name: str, platform_arch: str = ""
+    ) -> bool:
         """检查安装方式在平台上是否支持"""
         if not self.supported_on:
             return True
-        # 先检查安装方式+平台
+        # 1. 最具体：installer.platform_arch (如 custom_url.windows_x86_64)
+        if platform_arch:
+            key = f"{installer_name}.{platform_arch}"
+            if key in self.supported_on:
+                return self.supported_on[key]
+        # 2. installer.platform (如 custom_url.windows)
         key = f"{installer_name}.{platform}"
         if key in self.supported_on:
             return self.supported_on[key]
-        # 再检查平台
+        # 3. platform_arch (如 windows_x86_64)
+        if platform_arch and platform_arch in self.supported_on:
+            return self.supported_on[platform_arch]
+        # 4. platform (默认，如 windows)
         return self.supported_on.get(platform, True)
 
     def is_binary(self) -> bool:

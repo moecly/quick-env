@@ -104,9 +104,8 @@ description = "Terminal multiplexer"
 installable_by = ["package_manager", "custom_url"]
 package_name = "tmux"
 repo = "tmux/tmux"
-supported_on.linux = true
-supported_on.macos = true
-supported_on.windows = false
+supported_on.windows = true
+supported_on.package_manager.windows = false
 priority.package_manager = 10
 priority.custom_url = 20
 

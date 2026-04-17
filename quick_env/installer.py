@@ -1305,23 +1305,26 @@ class InstallerFactory:
 
         platform = detect_platform()
         platform_key = platform.platform_name
+        platform_arch = platform.platform_arch
 
         # 检查工具是否支持当前平台
-        if not tool.is_platform_supported(platform_key):
+        if not tool.is_platform_supported(platform_key, platform_arch):
             return None
 
         if tool.is_dotfile():
             return cls.get_installer("dotfile")
 
         if tool.custom_script:
-            if tool.is_installer_supported(platform_key, "custom_script"):
+            if tool.is_installer_supported(
+                platform_key, "custom_script", platform_arch
+            ):
                 return cls.get_installer("custom_script")
             return None
 
         available = []
         for name in tool.installable_by:
             # 检查安装方式是否在当前平台上支持
-            if not tool.is_installer_supported(platform_key, name):
+            if not tool.is_installer_supported(platform_key, name, platform_arch):
                 continue
 
             installer = cls.get_installer(name)

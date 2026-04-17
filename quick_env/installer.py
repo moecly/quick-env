@@ -167,7 +167,7 @@ def get_latest_from_package_manager(tool: Tool) -> Optional[str]:
 
 
 def get_version_info(tool: Tool) -> VersionInfo:
-    """获取工具的版本信息"""
+    """获取工具的版本信息，按 installable_by + priority 优先级检测"""
     info = VersionInfo()
 
     cmd_name = get_command_name(tool)
@@ -184,18 +184,28 @@ def get_version_info(tool: Tool) -> VersionInfo:
         except Exception:
             pass
 
-    latest = get_latest_from_package_manager(tool)
-    if latest:
-        info.latest = latest
-        info.source = "package_manager"
-    elif tool.repo:
-        try:
-            api = GitHubAPI()
-            release = api.get_latest_release(tool.repo)
-            info.latest = release.tag_name.lstrip("v")
-            info.source = "github"
-        except Exception:
-            pass
+    sources = []
+    for name in tool.installable_by:
+        priority = tool.get_priority(name, 100)
+        sources.append((name, priority))
+    sources.sort(key=lambda x: x[1])
+
+    for source_name, _ in sources:
+        if source_name == "github" and tool.repo:
+            try:
+                api = GitHubAPI()
+                release = api.get_latest_release(tool.repo)
+                info.latest = release.tag_name.lstrip("v")
+                info.source = "github"
+                break
+            except Exception:
+                pass
+        elif source_name == "package_manager":
+            latest = get_latest_from_package_manager(tool)
+            if latest:
+                info.latest = latest
+                info.source = "package_manager"
+                break
 
     if info.current and info.latest:
         info.has_update = compare_versions(info.latest, info.current) > 0

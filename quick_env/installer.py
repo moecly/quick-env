@@ -1056,15 +1056,20 @@ class CustomScriptInstaller(Installer):
         return None
 
     def install(self, tool: Tool) -> InstallResult:
-        if not tool.custom_script:
-            return InstallResult(False, "No custom_script defined", self.name)
+        script = tool.custom_script
+        if isinstance(script, dict):
+            script = script.get(self.platform.platform_name) or script.get("default")
+        if not script:
+            return InstallResult(
+                False, "No custom_script defined for this platform", self.name
+            )
 
         try:
             log_install(
                 tool.display_name, self.name, "Installing with custom script..."
             )
             result = run_subprocess(
-                tool.custom_script,
+                script,
                 shell=True,
                 capture_output=True,
                 text=True,
@@ -1151,14 +1156,16 @@ class CustomURLInstaller(Installer):
         return None
 
     def install(self, tool: Tool) -> InstallResult:
-        if not tool.custom_url:
-            return InstallResult(False, "No custom_url defined", self.name)
+        url = tool.get_custom_url(self.platform.platform_name)
+        if not url:
+            return InstallResult(
+                False, "No custom_url defined for this platform", self.name
+            )
 
         try:
             cache_dir = Path(self.paths["quick_env_cache"])
             cache_dir.mkdir(parents=True, exist_ok=True)
 
-            url = tool.custom_url
             filename = url.split("/")[-1].split("?")[0]
             cache_path = cache_dir / filename
 

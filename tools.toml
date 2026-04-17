@@ -81,9 +81,10 @@ type = "binary"
 name = "nvim"
 display_name = "Neovim"
 description = "Hyperextensible Vim-based text editor"
-installable_by = ["github", "package_manager"]
+installable_by = ["github", "package_manager", "custom_url"]
 priority.github = 10
 priority.package_manager = 30
+priority.custom_url = 20
 package_name = "neovim"
 repo = "neovim/neovim"
 aliases = ["neovim"]
@@ -93,6 +94,9 @@ linux_x86_64 = "nvim-linux-x86_64.tar.gz"
 linux_arm64 = "nvim-linux-arm64.tar.gz"
 darwin_x86_64 = "nvim-macos-x86_64.tar.gz"
 darwin_arm64 = "nvim-macos-arm64.tar.gz"
+
+[tools.nvim.custom_url]
+windows_x86_64 = "https://github.com/neovim/neovim/releases/download/v0.12.1/nvim-win64.zip"
 
 [tools.tmux]
 type = "binary"

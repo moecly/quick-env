@@ -83,6 +83,18 @@ class Tool:
             return self.github_asset_patterns["default"]
         return None
 
+    def get_custom_url(self, platform: str) -> str | None:
+        """根据平台获取 custom_url"""
+        if self.custom_url is None:
+            return None
+        if isinstance(self.custom_url, dict):
+            if platform in self.custom_url:
+                return self.custom_url[platform]
+            if "default" in self.custom_url:
+                return self.custom_url["default"]
+            return None
+        return self.custom_url
+
     def get_priority(self, installer_name: str, default: int = 100) -> int:
         return self.priority.get(installer_name, default)
 

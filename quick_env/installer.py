@@ -60,6 +60,166 @@ class ToolDetection:
         return ", ".join(names)
 
 
+@dataclass
+class VersionInfo:
+    current: Optional[str] = None
+    latest: Optional[str] = None
+    source: str = ""
+    has_update: bool = False
+
+
+def get_command_name(tool: Tool) -> str:
+    """根据当前平台获取实际命令名"""
+    pm = detect_package_manager()
+    if pm and tool.platform_commands:
+        return tool.platform_commands.get(pm, tool.platform_commands.get("default", tool.name))
+    return tool.name
+
+
+def get_latest_from_package_manager(tool: Tool) -> Optional[str]:
+    """从包管理器获取最新版本"""
+    pm = detect_package_manager()
+    if not pm or not tool.package_name:
+        return None
+
+    try:
+        if pm == "apt":
+            result = subprocess.run(
+                ["apt-cache", "policy", tool.package_name],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                match = re.search(r"Candidate:\s*(\S+)", result.stdout)
+                if match:
+                    version = match.group(1)
+                    if version and version != "(none)":
+                        return version
+
+        elif pm == "brew":
+            result = subprocess.run(
+                ["brew", "info", tool.package_name, "--json"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                import json
+                data = json.loads(result.stdout)
+                if data:
+                    return data[0].get("versions", {}).get("stable") or data[0].get("versions", {}).get("bottle")
+
+        elif pm == "dnf":
+            result = subprocess.run(
+                ["dnf", "list", tool.package_name, "--available"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                match = re.search(rf"{re.escape(tool.package_name)}.*?\s+(\S+)", result.stdout)
+                if match:
+                    return match.group(1)
+
+        elif pm == "yum":
+            result = subprocess.run(
+                ["yum", "list", tool.package_name, "--available"],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                match = re.search(rf"{re.escape(tool.package_name)}.*?\s+(\S+)", result.stdout)
+                if match:
+                    return match.group(1)
+
+        elif pm == "pacman":
+            result = subprocess.run(
+                ["pacman", "-Si", tool.package_name],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                match = re.search(r"Version\s*:\s*(\S+)", result.stdout)
+                if match:
+                    return match.group(1)
+
+        elif pm == "zypper":
+            result = subprocess.run(
+                ["zypper", "info", tool.package_name],
+                capture_output=True, text=True, timeout=10
+            )
+            if result.returncode == 0:
+                match = re.search(r"Version\s*:\s*(\S+)", result.stdout)
+                if match:
+                    return match.group(1)
+
+        elif pm == "winget":
+            result = subprocess.run(
+                ["winget", "list", "--id", tool.package_name],
+                capture_output=True, text=True, timeout=30
+            )
+            if result.returncode == 0:
+                lines = result.stdout.strip().split("\n")
+                for line in lines:
+                    if tool.package_name in line:
+                        parts = line.split()
+                        if len(parts) >= 3:
+                            return parts[-2]
+
+    except Exception:
+        pass
+
+    return None
+
+
+def get_version_info(tool: Tool) -> VersionInfo:
+    """获取工具的版本信息"""
+    info = VersionInfo()
+
+    cmd_name = get_command_name(tool)
+    which_path = shutil.which(cmd_name)
+
+    if which_path:
+        try:
+            result = subprocess.run([cmd_name, "--version"], capture_output=True, text=True, timeout=5)
+            if result.returncode == 0:
+                output = result.stdout + result.stderr
+                match = re.search(r"(\d+\.\d+\.?\d*)", output)
+                if match:
+                    info.current = match.group(1)
+        except Exception:
+            pass
+
+    latest = get_latest_from_package_manager(tool)
+    if latest:
+        info.latest = latest
+        info.source = "package_manager"
+    elif tool.repo:
+        try:
+            api = GitHubAPI()
+            release = api.get_latest_release(tool.repo)
+            info.latest = release.tag_name.lstrip("v")
+            info.source = "github"
+        except Exception:
+            pass
+
+    if info.current and info.latest:
+        info.has_update = compare_versions(info.latest, info.current) > 0
+
+    return info
+
+
+def compare_versions(v1: str, v2: str) -> int:
+    """比较两个版本号，返回 1 if v1 > v2, -1 if v1 < v2, 0 if equal"""
+    def parse(v: str) -> tuple:
+        v = v.lstrip("v")
+        parts = re.split(r"[.\-_]", v)
+        result = []
+        for p in parts:
+            if p.isdigit():
+                result.append(int(p))
+            else:
+                break
+        return tuple(result) if result else (0,)
+
+    v1_parts = parse(v1)
+    v2_parts = parse(v2)
+    return (v1_parts > v2_parts) - (v1_parts < v2_parts)
+
+
 class Installer(ABC):
     name: str = "base"
     priority: int = 100
@@ -84,34 +244,6 @@ class Installer(ABC):
     def uninstall(self, tool: Tool) -> InstallResult:
         pass
 
-    def detect(self, tool: Tool) -> ToolDetection:
-        detection = ToolDetection(tool_name=tool.name)
-        if self.is_installed(tool):
-            detection.installed = True
-            path = self._get_install_path(tool)
-            version = self.get_version(tool)
-            is_current = self._is_current_path(path)
-            detection.sources.append(SourceInfo(
-                name=self.name,
-                path=str(path) if path else "unknown",
-                version=version,
-                is_current=is_current,
-            ))
-            if is_current:
-                detection.current_source = self.name
-        return detection
-
-    def _get_install_path(self, tool: Tool) -> Optional[Path]:
-        return None
-
-    def _is_current_path(self, path: Optional[Path]) -> bool:
-        if not path:
-            return False
-        which_path = shutil.which(tool.name if 'tool' in dir() else "")
-        if not which_path:
-            return False
-        return Path(which_path).resolve() == path.resolve()
-
 
 class GitHubInstaller(Installer):
     name = "github"
@@ -135,26 +267,21 @@ class GitHubInstaller(Installer):
     def get_version(self, tool: Tool) -> Optional[str]:
         if tool.config_repo:
             return self._get_git_version(tool)
-        if tool.repo:
-            try:
-                release = self.api.get_latest_release(tool.repo)
-                return release.tag_name
-            except Exception:
-                return self._get_binary_version(tool)
-        return None
-
-    def _get_binary_version(self, tool: Tool) -> Optional[str]:
         bin_path = Path(self.paths["quick_env_bin"]) / tool.name
         if bin_path.exists():
-            try:
-                result = subprocess.run([str(bin_path), "--version"], capture_output=True, text=True)
-                if result.returncode == 0:
-                    output = result.stdout + result.stderr
-                    match = re.search(r"(\d+\.\d+\.?\d*)", output)
-                    if match:
-                        return match.group(1)
-            except Exception:
-                pass
+            return self._get_binary_version(bin_path)
+        return None
+
+    def _get_binary_version(self, bin_path: Path) -> Optional[str]:
+        try:
+            result = subprocess.run([str(bin_path), "--version"], capture_output=True, text=True)
+            if result.returncode == 0:
+                output = result.stdout + result.stderr
+                match = re.search(r"(\d+\.\d+\.?\d*)", output)
+                if match:
+                    return match.group(1)
+        except Exception:
+            pass
         return None
 
     def _get_git_version(self, tool: Tool) -> Optional[str]:
@@ -245,7 +372,7 @@ class GitHubInstaller(Installer):
         try:
             subprocess.run(
                 ["git", "clone", f"https://github.com/{tool.config_repo}", str(dest)],
-                check=True, capture_output=True, text=True
+                check=True, capture_output=True
             )
         except subprocess.CalledProcessError as e:
             return InstallResult(False, f"Clone failed: {e.stderr}", self.name)
@@ -278,40 +405,10 @@ class GitHubInstaller(Installer):
 
         return InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
 
-    def _get_install_path(self, tool: Tool) -> Optional[Path]:
-        if tool.config_repo:
-            return self._get_config_dest(tool)
-        return Path(self.paths["quick_env_bin"]) / tool.name
-
     def _get_config_dest(self, tool: Tool) -> Optional[Path]:
         if not tool.config_repo:
             return None
         return Path(self.paths["quick_env_config"]) / tool.name
-
-    def detect(self, tool: Tool) -> ToolDetection:
-        detection = ToolDetection(tool_name=tool.name)
-        if self.is_installed(tool):
-            detection.installed = True
-            path = self._get_install_path(tool)
-            version = self.get_version(tool)
-            is_current = self._check_is_current(tool, path)
-            detection.sources.append(SourceInfo(
-                name=self.name,
-                path=str(path) if path else "unknown",
-                version=version,
-                is_current=is_current,
-            ))
-            if is_current:
-                detection.current_source = self.name
-        return detection
-
-    def _check_is_current(self, tool: Tool, path: Optional[Path]) -> bool:
-        if not path:
-            return False
-        which_path = shutil.which(tool.name)
-        if not which_path:
-            return False
-        return Path(which_path).resolve() == path.resolve()
 
 
 class PackageManagerInstaller(Installer):
@@ -327,30 +424,21 @@ class PackageManagerInstaller(Installer):
         return True
 
     def is_installed(self, tool: Tool) -> bool:
-        which_path = shutil.which(tool.name)
+        cmd_name = get_command_name(tool)
+        which_path = shutil.which(cmd_name)
         if not which_path:
             return False
         quick_env_bin = Path(self.paths["quick_env_bin"]).resolve()
         tool_path = Path(which_path).resolve()
-        if tool_path.parent.resolve() == quick_env_bin:
-            return False
-        if tool.package_name:
-            cmd = PACKAGE_MANAGER_COMMANDS.get(self.manager, {}).get("check", "")
-            cmd = cmd.format(pkg=tool.package_name)
-            if cmd:
-                try:
-                    result = subprocess.run(cmd, shell=True, capture_output=True, text=True)
-                    return result.returncode == 0
-                except Exception:
-                    pass
-        return True
+        return tool_path.parent.resolve() != quick_env_bin
 
     def get_version(self, tool: Tool) -> Optional[str]:
-        which_path = shutil.which(tool.name)
+        cmd_name = get_command_name(tool)
+        which_path = shutil.which(cmd_name)
         if not which_path:
             return None
         try:
-            result = subprocess.run([tool.name, "--version"], capture_output=True, text=True)
+            result = subprocess.run([cmd_name, "--version"], capture_output=True, text=True)
             if result.returncode == 0:
                 output = result.stdout + result.stderr
                 match = re.search(r"(\d+\.\d+\.?\d*)", output)
@@ -399,37 +487,6 @@ class PackageManagerInstaller(Installer):
             return InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
         except subprocess.CalledProcessError as e:
             return InstallResult(False, f"Uninstall failed: {e.stderr}", self.name)
-
-    def _get_install_path(self, tool: Tool) -> Optional[Path]:
-        which_path = shutil.which(tool.name)
-        if which_path:
-            return Path(which_path)
-        return None
-
-    def detect(self, tool: Tool) -> ToolDetection:
-        detection = ToolDetection(tool_name=tool.name)
-        if self.is_installed(tool):
-            detection.installed = True
-            path = self._get_install_path(tool)
-            version = self.get_version(tool)
-            is_current = not self._is_quick_env_path(tool)
-            detection.sources.append(SourceInfo(
-                name=self.name,
-                path=str(path) if path else "system",
-                version=version,
-                is_current=is_current,
-            ))
-            if is_current:
-                detection.current_source = self.name
-        return detection
-
-    def _is_quick_env_path(self, tool: Tool) -> bool:
-        which_path = shutil.which(tool.name)
-        if not which_path:
-            return False
-        quick_env_bin = Path(self.paths["quick_env_bin"]).resolve()
-        tool_path = Path(which_path).resolve()
-        return tool_path.parent.resolve() == quick_env_bin
 
 
 class GitCloneInstaller(Installer):
@@ -485,7 +542,7 @@ class GitCloneInstaller(Installer):
         try:
             subprocess.run(
                 ["git", "clone", f"https://github.com/{tool.config_repo}", str(dest)],
-                check=True, capture_output=True, text=True
+                check=True, capture_output=True
             )
         except subprocess.CalledProcessError as e:
             return InstallResult(False, f"Clone failed: {e.stderr}", self.name)
@@ -524,13 +581,9 @@ class GitCloneInstaller(Installer):
             return None
         return Path(self.paths["quick_env_config"]) / tool.name
 
-    def _get_install_path(self, tool: Tool) -> Optional[Path]:
-        return self._get_config_dest(tool)
-
 
 class InstallerFactory:
     _instances: dict = {}
-    _detectors: dict = {}
 
     @classmethod
     def get_installer(cls, name: str) -> Optional[Installer]:
@@ -576,23 +629,26 @@ class InstallerFactory:
         for installer in cls.get_all_installers():
             if not installer.is_available():
                 continue
-            source_detection = installer.detect(tool)
-            if source_detection.installed:
-                for source in source_detection.sources:
-                    is_current = False
-                    if source.path and source.path != "unknown":
-                        source_path = Path(source.path).resolve()
-                        if source_path.parent.resolve() == quick_env_bin:
-                            which_path = shutil.which(tool.name)
-                            if which_path and Path(which_path).resolve() == source_path:
-                                is_current = True
-                        elif installer.name == "system":
-                            which_path = shutil.which(tool.name)
-                            if which_path and Path(which_path).resolve() == source_path:
-                                is_current = True
-                    detection.sources.append(source)
-                    if is_current:
-                        detection.current_source = installer.name
+            if installer.is_installed(tool):
+                cmd_name = get_command_name(tool)
+                which_path = shutil.which(cmd_name)
+                is_current = False
+                if which_path:
+                    tool_path = Path(which_path).resolve()
+                    if installer.name == "github":
+                        is_current = tool_path.parent.resolve() == quick_env_bin
+                    else:
+                        is_current = True
+
+                version = installer.get_version(tool)
+                detection.sources.append(SourceInfo(
+                    name=installer.name,
+                    path=str(which_path) if which_path else "unknown",
+                    version=version,
+                    is_current=is_current,
+                ))
+                if is_current:
+                    detection.current_source = installer.name
                 detection.installed = True
 
         detection.sources.sort(key=lambda x: not x.is_current)

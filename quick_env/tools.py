@@ -4,12 +4,16 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
+DEFAULT_COMMANDS: dict[str, str] = field(default_factory=lambda: {})
+
+
 @dataclass
 class Tool:
     name: str
     display_name: str
     installable_by: list[str] = field(default_factory=list)
     package_name: Optional[str] = None
+    platform_commands: dict[str, str] = field(default_factory=dict)
     repo: Optional[str] = None
     asset_pattern: Optional[str] = None
     config_repo: Optional[str] = None
@@ -37,6 +41,13 @@ TOOLS = {
         display_name="FD",
         installable_by=["github"],
         package_name="fd-find",
+        platform_commands={
+            "apt": "fdfind",
+            "brew": "fd",
+            "dnf": "fd",
+            "pacman": "fd",
+            "default": "fd",
+        },
         repo="sharkdp/fd",
         asset_pattern="fd-{version}-{platform}-{arch}.tar.gz",
         description="Simple, fast and user-friendly alternative to find",

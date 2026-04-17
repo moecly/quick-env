@@ -13,7 +13,7 @@ from rich import print as rprint
 
 from .platform import detect_platform, detect_package_manager, get_env_paths
 from .tools import get_tool, get_all_tools, Tool
-from .installer import InstallerFactory, InstallResult
+from .installer import InstallerFactory, InstallResult, get_version_info
 
 app = typer.Typer(
     name="quick-env",
@@ -138,72 +138,47 @@ def upgrade(
 @app.command("list")
 def list_tools(
     tools: List[str] = typer.Argument(None, help="Show tools. Use 'all' to show all tools."),
-    category: Optional[str] = typer.Option(None, "--category", "-c", help="Filter by category (github, system, git_clone)"),
+    show_updates: bool = typer.Option(False, "--updates", "-u", help="Only show tools with updates"),
 ):
-    """List installed tools."""
-    if tools is None:
-        show_all = True
-        show_tools = []
-    else:
-        show_all = "all" in tools
-        show_tools = tools
+    """List installed tools with version and update information."""
+    show_all = tools is None or "all" in tools
 
     table = Table(title="Tools")
-    table.add_column("Name", style="cyan")
-    table.add_column("Status", style="green")
-    table.add_column("Sources", style="yellow")
+    table.add_column("Name", style="cyan", no_wrap=True)
+    table.add_column("Status", style="green", justify="center")
+    table.add_column("Source", style="yellow", no_wrap=True)
     table.add_column("Version", style="blue")
+    table.add_column("Update", style="magenta", justify="center")
 
     all_tools = get_all_tools()
-    tools_to_show = all_tools if show_all else {k: all_tools[k] for k in show_tools if k in all_tools}
+    tools_to_show = all_tools if show_all else {k: all_tools[k] for k in tools if k in all_tools}
 
     for tool_name, tool in tools_to_show.items():
         detection = InstallerFactory.detect_tool(tool)
+        version_info = get_version_info(tool)
 
         if not detection.installed and not show_all:
             continue
 
-        status = "[green]✓[/green]" if detection.installed else "[red]✗[/red]"
-        sources = detection.sources_display
-        version = detection.current_version or "-"
+        if show_updates and not version_info.has_update:
+            continue
 
-        table.add_row(tool.display_name, status, sources, version)
+        status = "[green]✓[/green]" if detection.installed else "[red]✗[/red]"
+        source = detection.current_source or detection.sources[0].name if detection.sources else "-"
+        version = version_info.current or "-"
+        if version_info.has_update:
+            update = f"[yellow]✓[/yellow]"
+        elif version_info.latest:
+            update = "[green]✗[/green]"
+        else:
+            update = "-"
+
+        table.add_row(tool.display_name, status, source, version, update)
 
     if table.row_count == 0:
         console.print("[yellow]No tools found[/yellow]")
     else:
         console.print(table)
-
-
-@app.command()
-def status(
-    tools: List[str] = typer.Argument(..., help="Tool(s) to check. Use 'all' to check everything."),
-):
-    """Check for updates."""
-    if "all" in tools:
-        tools = list(get_all_tools().keys())
-
-    for tool_name in tools:
-        tool = get_tool(tool_name)
-        if not tool:
-            console.print(f"[red]Unknown tool: {tool_name}[/red]")
-            continue
-
-        installer = InstallerFactory.get_best_installer(tool)
-        if not installer:
-            console.print(f"[red]No installer available for {tool.display_name}[/red]")
-            continue
-
-        installed = installer.is_installed(tool)
-        current = installer.get_version(tool) if installed else None
-        latest = installer.get_version(tool)
-
-        if not installed:
-            console.print(f"[yellow]{tool.display_name}: Not installed[/yellow]")
-        elif current == latest:
-            console.print(f"[green]{tool.display_name}: Up to date ({current})[/green]")
-        else:
-            console.print(f"[cyan]{tool.display_name}: {current} → {latest}[/cyan]")
 
 
 @app.command()
@@ -227,11 +202,19 @@ def info(
         console.print(f"GitHub repo: {tool.repo}")
 
     detection = InstallerFactory.detect_tool(tool)
+    version_info = get_version_info(tool)
+
     if detection.installed:
         console.print(f"Status: [green]Installed[/green]")
-        console.print(f"Sources: {detection.sources_display}")
-        if detection.current_version:
-            console.print(f"Version: {detection.current_version}")
+        console.print(f"Source: {detection.current_source or detection.sources[0].name}")
+        if version_info.current:
+            console.print(f"Current version: {version_info.current}")
+        if version_info.latest:
+            console.print(f"Latest version: {version_info.latest} (via {version_info.source})")
+            if version_info.has_update:
+                console.print(f"[yellow]Update available![/yellow]")
+            else:
+                console.print(f"[green]Up to date[/green]")
     else:
         console.print("[yellow]Not installed[/yellow]")
 
@@ -254,6 +237,12 @@ def doctor():
     for name, passed in checks:
         check_status = "[green]✓[/green]" if passed else "[red]✗[/red]"
         console.print(f"{check_status} {name}")
+
+    pm = detect_package_manager()
+    if pm:
+        console.print(f"[green]✓[/green] Package manager: {pm}")
+    else:
+        console.print("[red]✗[/red] Package manager: None")
 
     paths = get_env_paths()
     console.print(f"\n[bold]Paths[/bold]")

@@ -11,8 +11,8 @@ from rich.console import Console
 from rich.table import Table
 from rich import print as rprint
 
-from .platform import detect_platform, detect_package_manager, get_env_paths
-from .tools import get_tool, get_all_tools, Tool
+from .platform import detect_platform, detect_package_manager, get_env_paths, command_exists
+from .config import get_config
 from .installer import InstallerFactory, InstallResult, get_version_info
 
 app = typer.Typer(
@@ -45,11 +45,12 @@ def install(
     force: bool = typer.Option(False, "--force", "-f", help="Force reinstall"),
 ):
     """Install tools."""
+    config = get_config()
     if "all" in tools:
-        tools = list(get_all_tools().keys())
+        tools = list(config.get_all_tools().keys())
 
     for tool_name in tools:
-        tool = get_tool(tool_name)
+        tool = config.get_tool(tool_name)
         if not tool:
             console.print(f"[red]Unknown tool: {tool_name}[/red]")
             continue
@@ -85,8 +86,9 @@ def uninstall(
     tools: List[str] = typer.Argument(..., help="Tool(s) to uninstall."),
 ):
     """Uninstall tools."""
+    config = get_config()
     for tool_name in tools:
-        tool = get_tool(tool_name)
+        tool = config.get_tool(tool_name)
         if not tool:
             console.print(f"[red]Unknown tool: {tool_name}[/red]")
             continue
@@ -109,11 +111,12 @@ def upgrade(
     tools: List[str] = typer.Argument(..., help="Tool(s) to upgrade. Use 'all' to upgrade everything."),
 ):
     """Upgrade tools to latest version."""
+    config = get_config()
     if "all" in tools:
-        tools = list(get_all_tools().keys())
+        tools = list(config.get_all_tools().keys())
 
     for tool_name in tools:
-        tool = get_tool(tool_name)
+        tool = config.get_tool(tool_name)
         if not tool:
             console.print(f"[red]Unknown tool: {tool_name}[/red]")
             continue
@@ -141,6 +144,7 @@ def list_tools(
     show_updates: bool = typer.Option(False, "--updates", "-u", help="Only show tools with updates"),
 ):
     """List installed tools with version and update information."""
+    config = get_config()
     show_all = tools is None or "all" in tools
 
     table = Table(title="Tools")
@@ -150,7 +154,7 @@ def list_tools(
     table.add_column("Version", style="blue")
     table.add_column("Update", style="magenta", justify="center")
 
-    all_tools = get_all_tools()
+    all_tools = config.get_all_tools()
     tools_to_show = all_tools if show_all else {k: all_tools[k] for k in tools if k in all_tools}
 
     for tool_name, tool in tools_to_show.items():
@@ -186,10 +190,11 @@ def info(
     tools: List[str] = typer.Argument(None, help="Tool name(s). Use 'all' to show all tools."),
 ):
     """Show information about a tool."""
+    config = get_config()
     show_all = tools is not None and "all" in tools
     tools_to_show = tools if tools and not show_all else None
 
-    all_tools = get_all_tools()
+    all_tools = config.get_all_tools()
     if tools_to_show:
         tools_dict = {k: all_tools[k] for k in tools_to_show if k in all_tools}
     else:

@@ -139,13 +139,12 @@ def get_env_paths() -> dict[str, str]:
     home = os.path.expanduser("~")
     return {
         "home": home,
-        "data_home": os.environ.get("XDG_DATA_HOME", os.path.join(home, ".local")),
         "bin_home": os.environ.get("XDG_BIN_HOME", os.path.join(home, ".local", "bin")),
-        "quick_env_home": os.path.join(os.environ.get("XDG_DATA_HOME", os.path.join(home, ".local")), "quick-env"),
-        "quick_env_bin": os.path.join(os.environ.get("XDG_DATA_HOME", os.path.join(home, ".local")), "quick-env", "bin"),
-        "quick_env_cache": os.path.join(os.environ.get("XDG_DATA_HOME", os.path.join(home, ".local")), "quick-env", "cache"),
-        "quick_env_logs": os.path.join(os.environ.get("XDG_DATA_HOME", os.path.join(home, ".local")), "quick-env", "logs"),
-        "quick_env_config": os.path.join(os.environ.get("XDG_DATA_HOME", os.path.join(home, ".local")), "quick-env", "config"),
+        "quick_env_home": os.path.join(home, ".quick-env"),
+        "quick_env_bin": os.path.join(home, ".quick-env", "bin"),
+        "quick_env_cache": os.path.join(home, ".quick-env", "cache"),
+        "quick_env_logs": os.path.join(home, ".quick-env", "logs"),
+        "quick_env_config": os.path.join(home, ".quick-env", "configs"),
     }
 
 

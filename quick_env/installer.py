@@ -610,10 +610,11 @@ class InstallerFactory:
         for name in tool.installable_by:
             installer = cls.get_installer(name)
             if installer and installer.is_available():
-                available.append(installer)
+                priority = tool.get_priority(name, installer.priority)
+                available.append((installer, priority))
 
-        available.sort(key=lambda x: x.priority)
-        return available[0] if available else None
+        available.sort(key=lambda x: x[1])
+        return available[0][0] if available else None
 
     @classmethod
     def detect_tool(cls, tool: Tool) -> ToolDetection:

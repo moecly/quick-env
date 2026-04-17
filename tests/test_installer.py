@@ -11,7 +11,7 @@ from quick_env.installer import (
     SourceInfo,
     ToolDetection,
 )
-from quick_env.tools import TOOLS
+from quick_env.config import get_config
 
 
 class TestInstallResult(unittest.TestCase):
@@ -165,19 +165,22 @@ class TestInstallerFactory(unittest.TestCase):
         self.assertIsNone(installer)
 
     def test_get_best_installer_for_lazygit(self):
-        tool = TOOLS["lazygit"]
+        config = get_config()
+        tool = config.get_tool("lazygit")
         installer = InstallerFactory.get_best_installer(tool)
         self.assertIsNotNone(installer)
         self.assertEqual(installer.name, "github")
 
     def test_get_best_installer_for_tmux_config(self):
-        tool = TOOLS["tmux-config"]
+        config = get_config()
+        tool = config.get_tool("tmux-config")
         installer = InstallerFactory.get_best_installer(tool)
         self.assertIsNotNone(installer)
         self.assertEqual(installer.name, "git_clone")
 
     def test_detect_tool_returns_detection(self):
-        tool = TOOLS["lazygit"]
+        config = get_config()
+        tool = config.get_tool("lazygit")
         detection = InstallerFactory.detect_tool(tool)
         self.assertIsInstance(detection, ToolDetection)
         self.assertEqual(detection.tool_name, "lazygit")

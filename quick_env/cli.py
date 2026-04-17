@@ -502,17 +502,11 @@ def doctor(
                     version_str = f"{version or '-'}"
                 else:
                     installer = InstallerFactory.get_best_installer(tool)
-                    quick_env_bin = Path(paths["quick_env_bin"]) / tool.name
+                    quick_env_bin_dir = Path(paths["quick_env_bin"])
+                    bin_entry = platform.get_bin_entry(quick_env_bin_dir, tool.name)
 
-                    if quick_env_bin.exists():
-                        is_symlink = quick_env_bin.is_symlink()
-                        target_exists = (
-                            quick_env_bin.resolve().exists()
-                            if is_symlink
-                            else quick_env_bin.exists()
-                        )
-
-                        if target_exists:
+                    if bin_entry:
+                        if platform.is_bin_valid(quick_env_bin_dir, tool.name):
                             binary_passed += 1
                             version = installer.get_version(tool) if installer else None
                             icon = "[green]✓[/green]"
@@ -523,12 +517,8 @@ def doctor(
                             icon = "[red]✗[/red]"
                             source = "quick-env"
                             version_str = "-"
-                            if is_symlink:
-                                status = "Broken symlink"
-                                issue = ("broken_symlink", tool, quick_env_bin)
-                            else:
-                                status = "Not found"
-                                issue = ("not_found", tool, quick_env_bin)
+                            status = "Broken symlink"
+                            issue = ("broken_symlink", tool, bin_entry)
                     else:
                         icon = "[yellow]![/yellow]"
                         source = "-"

@@ -32,7 +32,9 @@
 - [x] 添加包管理器支持到 lazygit、fd、ripgrep
 - [x] 解压目录与 bin 入口分离（data/ + 软链接）
 - [x] 平台差异化统一入口（Platform 类）
-- [x] Git Bash/MSYS2 支持（使用 .cmd 脚本）
+- [x] Git Bash/MSYS2 支持（同时创建 .cmd 和 .sh 入口）
+- [x] 平台差异化统一到 Platform 类（bin 入口管理）
+- [x] 统一 bin 入口检测：is_bin_valid()、get_bin_entry() 方法
 
 ### 待实现
 
@@ -624,6 +626,7 @@ quick-env config edit       # 编辑配置
 5. 配置文件修改后需要重启或重新加载
 6. dotfile 链接目标已存在时，会备份为 `.bak` 再创建链接
 7. glob 匹配保持目录结构
+8. Git Bash/MSYS2 环境下会同时创建 .cmd 和 .sh 入口，which 命令会同时搜索两者
 
 ## 平台差异化处理
 
@@ -651,11 +654,20 @@ class Platform:
     def find_exe(self, directory: Path, name: str) -> Optional[Path]:
         """在目录中查找可执行文件"""
 
+    def get_all_bin_entries(self, bin_dir: Path, name: str) -> List[Path]:
+        """获取所有可能的 bin 入口路径"""
+
+    def get_bin_entry(self, bin_dir: Path, name: str) -> Optional[Path]:
+        """获取主要的 bin 入口路径"""
+
     def is_bin_installed(self, bin_dir: Path, name: str) -> bool:
         """检测 bin 入口是否存在"""
 
+    def is_bin_valid(self, bin_dir: Path, name: str) -> bool:
+        """检测 bin 入口是否有效"""
+
     def install_bin_entry(self, bin_path: Path, target: Path) -> None:
-        """创建 bin 入口（软链接或 .cmd 脚本）"""
+        """创建 bin 入口（软链接或 .cmd/.sh 脚本）"""
 
     def remove_bin_entry(self, bin_path: Path) -> None:
         """删除 bin 入口"""
@@ -669,4 +681,4 @@ class Platform:
 | 平台 | exe_name | bin_name | install_bin_entry |
 |------|----------|----------|-------------------|
 | Linux/macOS/WSL | `tool` | `tool` | 软链接 |
-| Git Bash/MSYS2 | `tool.exe` | `tool.cmd` | .cmd 脚本 |
+| Git Bash/MSYS2 | `tool.exe` | `tool.cmd` / `tool.sh` | .cmd + .sh 脚本 |

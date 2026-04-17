@@ -6,7 +6,7 @@ import shutil
 import sys
 from dataclasses import dataclass
 from pathlib import Path
-from typing import Optional
+from typing import List, Optional
 
 
 @dataclass
@@ -64,16 +64,58 @@ class Platform:
                 return p
         return None
 
+    def get_all_bin_entries(self, bin_dir: Path, name: str) -> List[Path]:
+        """获取所有可能的 bin 入口路径"""
+        entries = []
+        primary = bin_dir / self.bin_name(name)
+        entries.append(primary)
+        if self.is_msys:
+            entries.append(primary.with_suffix(".sh"))
+        return entries
+
+    def get_bin_entry(self, bin_dir: Path, name: str) -> Optional[Path]:
+        """获取主要的 bin 入口路径（优先标准入口）"""
+        primary = bin_dir / self.bin_name(name)
+        if primary.exists():
+            return primary
+        if self.is_msys:
+            sh_path = primary.with_suffix(".sh")
+            if sh_path.exists():
+                return sh_path
+        return None
+
     def is_bin_installed(self, bin_dir: Path, name: str) -> bool:
-        return (bin_dir / self.bin_name(name)).exists()
+        """检测 bin 入口是否存在"""
+        return self.get_bin_entry(bin_dir, name) is not None
+
+    def is_bin_valid(self, bin_dir: Path, name: str) -> bool:
+        """检测 bin 入口是否有效（存在且非损坏）"""
+        entry = self.get_bin_entry(bin_dir, name)
+        if not entry:
+            return False
+        if self.is_msys:
+            return entry.is_file()
+        if entry.is_symlink():
+            return self.is_symlink_valid(entry)
+        return entry.exists()
 
     def which(self, cmd: str) -> Optional[str]:
         """检测命令是否存在，返回路径或 None"""
-        return shutil.which(cmd)
+        result = shutil.which(cmd)
+        if result:
+            return result
+        if self.is_msys:
+            result = shutil.which(f"{cmd}.cmd")
+            if result:
+                return result
+            result = shutil.which(f"{cmd}.sh")
+            if result:
+                return result
+        return None
 
     def command_exists(self, cmd: str) -> bool:
         """检测命令是否存在"""
-        return shutil.which(cmd) is not None
+        return self.which(cmd) is not None
 
     def is_symlink(self, path: Path) -> bool:
         """检查路径是否是符号链接"""
@@ -157,25 +199,38 @@ class Platform:
 
     def install_bin_entry(self, bin_path: Path, target: Path) -> None:
         if self.is_msys:
-            target_str = str(target)
+            target_str = str(target).replace("\\", "/")
+            cmd_path = bin_path.with_suffix(".cmd")
+            sh_path = bin_path.with_suffix(".sh")
             content = f'@echo off\n"{target_str}" %*\n'
-            bin_path.write_text(content)
+            cmd_path.write_text(content)
+            content = f'#!/bin/bash\n"{target_str}" "$@"\n'
+            sh_path.write_text(content)
+            os.chmod(sh_path, 0o755)
         else:
             os.symlink(target, bin_path)
 
     def remove_bin_entry(self, bin_path: Path) -> None:
         if bin_path.exists():
             bin_path.unlink()
+        if self.is_msys:
+            cmd_path = bin_path.with_suffix(".cmd")
+            sh_path = bin_path.with_suffix(".sh")
+            if cmd_path.exists():
+                cmd_path.unlink()
+            if sh_path.exists():
+                sh_path.unlink()
 
     def get_bin_executable_path(self, bin_dir: Path, name: str) -> Optional[Path]:
-        bin_path = bin_dir / self.bin_name(name)
-        if not bin_path.exists():
+        """获取 bin 入口指向的可执行文件路径"""
+        entry = self.get_bin_entry(bin_dir, name)
+        if not entry:
             return None
         if self.is_msys:
-            return bin_path
-        if bin_path.is_symlink():
-            return bin_path.resolve()
-        return bin_path
+            return entry
+        if entry.is_symlink():
+            return entry.resolve()
+        return entry
 
 
 PLATFORM_MAP = {

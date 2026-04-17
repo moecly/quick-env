@@ -41,7 +41,7 @@ def main(
 @app.command()
 def install(
     tools: List[str] = typer.Argument(..., help="Tool(s) to install. Use 'all' to install everything."),
-    method: Optional[str] = typer.Option(None, "--method", "-m", help="Installation method (github, package_manager, git_clone)"),
+    method: Optional[str] = typer.Option(None, "--method", "-m", help="Installation method (github, system, git_clone)"),
     force: bool = typer.Option(False, "--force", "-f", help="Force reinstall"),
 ):
     """Install tools."""
@@ -135,33 +135,39 @@ def upgrade(
             console.print(f"[red]✗ {result.message}[/red]")
 
 
-@app.command()
-def list(
-    all_tools: bool = typer.Option(False, "--all", "-a", help="Show all tools, not just installed"),
-    category: Optional[str] = typer.Option(None, "--category", "-c", help="Filter by category (github, package_manager, git_clone)"),
+@app.command("list")
+def list_tools(
+    tools: List[str] = typer.Argument(None, help="Show tools. Use 'all' to show all tools."),
+    category: Optional[str] = typer.Option(None, "--category", "-c", help="Filter by category (github, system, git_clone)"),
 ):
     """List installed tools."""
+    if tools is None:
+        show_all = True
+        show_tools = []
+    else:
+        show_all = "all" in tools
+        show_tools = tools
+
     table = Table(title="Tools")
     table.add_column("Name", style="cyan")
     table.add_column("Status", style="green")
-    table.add_column("Method", style="yellow")
+    table.add_column("Sources", style="yellow")
     table.add_column("Version", style="blue")
 
-    tools = get_all_tools()
-    for tool_name, tool in tools.items():
-        installer = InstallerFactory.get_best_installer(tool)
-        if not installer:
+    all_tools = get_all_tools()
+    tools_to_show = all_tools if show_all else {k: all_tools[k] for k in show_tools if k in all_tools}
+
+    for tool_name, tool in tools_to_show.items():
+        detection = InstallerFactory.detect_tool(tool)
+
+        if not detection.installed and not show_all:
             continue
 
-        is_installed = installer.is_installed(tool)
-        if not is_installed and not all_tools:
-            continue
+        status = "[green]✓[/green]" if detection.installed else "[red]✗[/red]"
+        sources = detection.sources_display
+        version = detection.current_version or "-"
 
-        version = installer.get_version(tool) if is_installed else "-"
-        method = installer.name if is_installed else "-"
-        status = "[green]✓[/green]" if is_installed else "[red]✗[/red]"
-
-        table.add_row(tool.display_name, status, method, version or "-")
+        table.add_row(tool.display_name, status, sources, version)
 
     if table.row_count == 0:
         console.print("[yellow]No tools found[/yellow]")
@@ -205,6 +211,7 @@ def info(
     tool_name: str = typer.Argument(..., help="Tool name"),
 ):
     """Show information about a tool."""
+
     tool = get_tool(tool_name)
     if not tool:
         console.print(f"[red]Unknown tool: {tool_name}[/red]")
@@ -219,15 +226,14 @@ def info(
     if tool.repo:
         console.print(f"GitHub repo: {tool.repo}")
 
-    installer = InstallerFactory.get_best_installer(tool)
-    if installer:
-        installed = installer.is_installed(tool)
-        version = installer.get_version(tool) if installed else None
-        console.print(f"Status: {'[green]Installed[/green]' if installed else '[red]Not installed[/red]'}")
-        if version:
-            console.print(f"Version: {version}")
+    detection = InstallerFactory.detect_tool(tool)
+    if detection.installed:
+        console.print(f"Status: [green]Installed[/green]")
+        console.print(f"Sources: {detection.sources_display}")
+        if detection.current_version:
+            console.print(f"Version: {detection.current_version}")
     else:
-        console.print("[yellow]No installer available[/yellow]")
+        console.print("[yellow]Not installed[/yellow]")
 
 
 @app.command()
@@ -246,8 +252,8 @@ def doctor():
     ]
 
     for name, passed in checks:
-        status = "[green]✓[/green]" if passed else "[red]✗[/red]"
-        console.print(f"{status} {name}")
+        check_status = "[green]✓[/green]" if passed else "[red]✗[/red]"
+        console.print(f"{check_status} {name}")
 
     paths = get_env_paths()
     console.print(f"\n[bold]Paths[/bold]")

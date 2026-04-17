@@ -4,15 +4,14 @@ version = "0.1.0"
 description = "Cross-platform development environment setup tool"
 requires-python = ">=3.10"
 dependencies = [
-    "typer>=0.12.0",
-    "rich>=13.7.0",
     "requests>=2.31.0",
+    "rich>=13.7.0",
+    "typer>=0.12.0",
 ]
 
 [project.optional-dependencies]
 dev = [
     "pytest>=8.0.0",
-    "ruff>=0.3.0",
 ]
 
 [project.scripts]
@@ -28,6 +27,21 @@ packages = ["quick_env"]
 [tool.hatch.build.targets.sdist]
 include = ["quick_env", "pyproject.toml"]
 
-[tool.ruff]
-line-length = 100
-target-version = "py310"
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+python_files = ["test_*.py"]
+python_classes = ["Test*"]
+python_functions = ["test_*"]
+addopts = "-v"
+
+[tool.coverage.run]
+source = ["quick_env"]
+omit = ["tests/*"]
+
+[tool.coverage.report]
+exclude_lines = [
+    "pragma: no cover",
+    "def __repr__",
+    "raise AssertionError",
+    "raise NotImplementedError",
+]

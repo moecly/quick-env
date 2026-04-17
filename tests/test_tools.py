@@ -57,9 +57,11 @@ class TestToolDefinition(unittest.TestCase):
         self.assertIn("dotfile", tool.installable_by)
         self.assertEqual(tool.config_repo, "moecly/tmux_config")
         self.assertEqual(tool.config_branch, "main")
-        self.assertEqual(len(tool.links), 1)
+        self.assertEqual(len(tool.links), 2)
         self.assertEqual(tool.links[0].glob, ".tmux.conf")
         self.assertEqual(tool.links[0].to, "~/.tmux.conf")
+        self.assertEqual(tool.links[1].glob, ".tmux.conf.local")
+        self.assertEqual(tool.links[1].to, "~/.tmux.conf.local")
 
     def test_nvim_config_definition(self):
         tool = self.tools["nvim-config"]

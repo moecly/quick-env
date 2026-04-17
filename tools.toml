@@ -116,6 +116,7 @@ config_repo = "moecly/tmux_config"
 config_branch = "main"
 links = [
     { glob = ".tmux.conf", to = "~/.tmux.conf" },
+    { glob = ".tmux.conf.local", to = "~/.tmux.conf.local" },
 ]
 exclude = ["*.md", "README.md"]
 

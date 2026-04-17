@@ -211,7 +211,7 @@ def get_version_info(tool: Tool) -> VersionInfo:
     current_platform = detect_platform()
 
     cmd_name = get_command_name(tool)
-    which_path = self.platform.which(cmd_name)
+    which_path = current_platform.which(cmd_name)
 
     if not which_path:
         quick_env_bin = Path(get_env_paths()["quick_env_bin"])
@@ -1272,8 +1272,11 @@ class InstallerFactory:
     @classmethod
     def is_tool_available_in_system(cls, tool: Tool) -> bool:
         """检查工具命令是否在系统 PATH 中可用（不考虑 quick-env/bin）"""
+        from .platform import detect_platform
+
+        platform = detect_platform()
         cmd_name = get_command_name(tool)
-        which_path = self.platform.which(cmd_name)
+        which_path = platform.which(cmd_name)
         if not which_path:
             return False
 

@@ -498,6 +498,21 @@ class GitHubInstaller(Installer):
             release.tag_name,
         )
 
+    def _find_specific_executable(
+        self, data_dir: Path, entry_name: str
+    ) -> Optional[Path]:
+        """查找指定名称的可执行文件"""
+        exe_name = self.platform.exe_name(entry_name)
+        exe_path = data_dir / exe_name
+        if exe_path.exists():
+            return exe_path
+
+        for pattern in ["*", "bin/*", f"{entry_name}*"]:
+            for path in data_dir.rglob(pattern):
+                if path.is_file() and self.platform.find_exe(path.parent, entry_name):
+                    return path
+        return None
+
     def _install_config(self, tool: Tool) -> InstallResult:
         dest = self._get_config_dest(tool)
         if not dest:
@@ -547,7 +562,7 @@ class GitHubInstaller(Installer):
         bin_path = self._get_bin_path(tool)
         self.platform.remove_bin_entry(bin_path)
 
-        data_dir = Path(self.paths["quick_env_data"])
+        data_dir = Path(self.paths["quick_env_tools"])
         if data_dir.exists():
             prefix = f"{tool.name}_"
             for item in data_dir.iterdir():

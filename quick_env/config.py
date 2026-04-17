@@ -1,10 +1,10 @@
 """Configuration loading module."""
 
-import shutil
 import sys
 from pathlib import Path
 from typing import Optional
 
+from .platform import detect_platform, Platform
 from .tools import Tool, LinkConfig
 
 
@@ -57,29 +57,30 @@ class Config:
     @staticmethod
     def init_config() -> Path:
         """初始化用户配置目录、文件及所有必要目录"""
-        from .platform import get_env_paths
+        from .platform import get_env_paths, detect_platform
 
+        platform = detect_platform()
         user_home = Config._get_user_home_path()
-        user_home.mkdir(parents=True, exist_ok=True)
+        platform.mkdir(Path(user_home), parents=True, exist_ok=True)
 
         paths = get_env_paths()
         for key, path in paths.items():
             if key.startswith("quick_env_"):
-                Path(path).mkdir(parents=True, exist_ok=True)
+                platform.mkdir(Path(path), parents=True, exist_ok=True)
 
         tools_dir = Path(paths["quick_env_tools"])
-        if not tools_dir.exists():
-            tools_dir.mkdir(parents=True, exist_ok=True)
+        if not platform.is_dir(tools_dir):
+            platform.mkdir(tools_dir, parents=True, exist_ok=True)
 
         dotfiles_dir = Path(paths["quick_env_dotfiles"])
-        if not dotfiles_dir.exists():
-            dotfiles_dir.mkdir(parents=True, exist_ok=True)
+        if not platform.is_dir(dotfiles_dir):
+            platform.mkdir(dotfiles_dir, parents=True, exist_ok=True)
 
         user_config = Config._get_user_config_path()
         if not user_config.exists():
             built_in = Config.get_project_config_path()
             if built_in.exists():
-                shutil.copy2(built_in, user_config)
+                platform.copy2(built_in, user_config)
 
         return user_config
 

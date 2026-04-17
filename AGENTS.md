@@ -36,6 +36,8 @@
 
 ### 待实现
 
+- [ ] 增强 is_installed 检测逻辑：检查软链接目标是否有效，避免"假安装"状态
+- [ ] 系统处理统一到 Platform 类：封装 shutil.which、os.symlink、shutil.rmtree 等
 - [x] 目录结构重构：`data/` → `tools/`，新增 `dotfiles/` 目录
 - [x] 新增 `type` 字段区分工具类型（`binary` / `dotfile`）
 - [x] 新增 dotfile 配置格式（`links`、`exclude`、`config_branch`）

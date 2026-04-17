@@ -398,8 +398,10 @@ def doctor(
         sys.version_info >= (3, 10),
         f"version {sys.version_info.major}.{sys.version_info.minor}",
     )
-    check("Git", command_exists("git"))
-    check("curl/wget", command_exists("curl") or command_exists("wget"))
+    check("Git", platform.command_exists("git"))
+    check(
+        "curl/wget", platform.command_exists("curl") or platform.command_exists("wget")
+    )
     pm_status = pm is not None
     check("Package Manager", pm_status, pm if pm else "None")
     console.print()
@@ -471,7 +473,7 @@ def doctor(
             for tool in binary_tools:
                 binary_total += 1
                 cmd_name = get_command_name(tool)
-                system_path = shutil.which(cmd_name)
+                system_path = platform.which(cmd_name)
                 issue = None
 
                 if system_path:
@@ -759,7 +761,7 @@ def doctor(
                             if matching_files:
                                 dest = Path(os.path.expanduser(link.to))
                                 dest.parent.mkdir(parents=True, exist_ok=True)
-                                os.symlink(repo_path, dest)
+                                platform.create_symlink(repo_path, dest)
                                 console.print(f"  [green]✓[/green] Fixed link: {dest}")
                                 fixed_count += 1
                                 break

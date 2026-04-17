@@ -67,6 +67,94 @@ class Platform:
     def is_bin_installed(self, bin_dir: Path, name: str) -> bool:
         return (bin_dir / self.bin_name(name)).exists()
 
+    def which(self, cmd: str) -> Optional[str]:
+        """检测命令是否存在，返回路径或 None"""
+        return shutil.which(cmd)
+
+    def command_exists(self, cmd: str) -> bool:
+        """检测命令是否存在"""
+        return shutil.which(cmd) is not None
+
+    def is_symlink(self, path: Path) -> bool:
+        """检查路径是否是符号链接"""
+        return path.is_symlink()
+
+    def symlink_exists(self, path: Path) -> bool:
+        """检查符号链接是否存在（包括目标是否有效）"""
+        return path.exists()
+
+    def is_symlink_valid(self, path: Path) -> bool:
+        """检查符号链接是否有效（指向的目标存在）"""
+        if not path.is_symlink():
+            return False
+        try:
+            return path.resolve().exists()
+        except Exception:
+            return False
+
+    def create_symlink(
+        self, src: Path, dest: Path, target_is_directory: bool = False
+    ) -> bool:
+        """创建符号链接"""
+        try:
+            if dest.exists() or dest.is_symlink():
+                dest.unlink()
+            os.symlink(src, dest, target_is_directory)
+            return True
+        except OSError:
+            return False
+
+    def remove_path(self, path: Path) -> bool:
+        """删除文件或符号链接"""
+        try:
+            if path.exists() or path.is_symlink():
+                path.unlink()
+            return True
+        except OSError:
+            return False
+
+    def rmtree(self, path: Path) -> bool:
+        """递归删除目录"""
+        try:
+            if path.exists():
+                shutil.rmtree(path)
+            return True
+        except OSError:
+            return False
+
+    def move(self, src: Path, dest: Path) -> bool:
+        """移动文件或目录"""
+        try:
+            shutil.move(str(src), str(dest))
+            return True
+        except OSError:
+            return False
+
+    def copy2(self, src: Path, dest: Path) -> bool:
+        """复制文件（保留元数据）"""
+        try:
+            dest.parent.mkdir(parents=True, exist_ok=True)
+            shutil.copy2(src, dest)
+            return True
+        except OSError:
+            return False
+
+    def mkdir(self, path: Path, parents: bool = True, exist_ok: bool = True) -> bool:
+        """创建目录"""
+        try:
+            path.mkdir(parents=parents, exist_ok=exist_ok)
+            return True
+        except OSError:
+            return False
+
+    def is_dir(self, path: Path) -> bool:
+        """检查是否是目录"""
+        return path.is_dir()
+
+    def is_file(self, path: Path) -> bool:
+        """检查是否是文件"""
+        return path.is_file()
+
     def install_bin_entry(self, bin_path: Path, target: Path) -> None:
         if self.is_msys:
             target_str = str(target)
@@ -134,21 +222,22 @@ def detect_platform() -> Platform:
 
 
 def detect_package_manager() -> Optional[str]:
-    if shutil.which("brew"):
+    p = detect_platform()
+    if p.which("brew"):
         return "brew"
-    elif shutil.which("apt"):
+    elif p.which("apt"):
         return "apt"
-    elif shutil.which("apt-get"):
+    elif p.which("apt-get"):
         return "apt"
-    elif shutil.which("dnf"):
+    elif p.which("dnf"):
         return "dnf"
-    elif shutil.which("yum"):
+    elif p.which("yum"):
         return "yum"
-    elif shutil.which("pacman"):
+    elif p.which("pacman"):
         return "pacman"
-    elif shutil.which("zypper"):
+    elif p.which("zypper"):
         return "zypper"
-    elif shutil.which("winget"):
+    elif p.which("winget"):
         return "winget"
     return None
 

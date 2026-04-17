@@ -211,7 +211,7 @@ def get_version_info(tool: Tool) -> VersionInfo:
     current_platform = detect_platform()
 
     cmd_name = get_command_name(tool)
-    which_path = shutil.which(cmd_name)
+    which_path = self.platform.which(cmd_name)
 
     if not which_path:
         quick_env_bin = Path(get_env_paths()["quick_env_bin"])
@@ -315,7 +315,10 @@ class GitHubInstaller(Installer):
         self.paths = get_env_paths()
 
     def is_available(self) -> bool:
-        return shutil.which("curl") is not None or shutil.which("wget") is not None
+        return (
+            self.platform.which("curl") is not None
+            or self.platform.which("wget") is not None
+        )
 
     def _get_data_dir(self, tool: Tool, version: str) -> Path:
         clean_version = self._sanitize_dirname(version.lstrip("v"))
@@ -400,7 +403,7 @@ class GitHubInstaller(Installer):
             if item.is_dir() and item.name.startswith(prefix):
                 version = self._parse_version_from_data_dir(item)
                 if version and version != clean_current:
-                    shutil.rmtree(item)
+                    self.platform.rmtree(item)
 
     def install(self, tool: Tool) -> InstallResult:
         if tool.config_repo:
@@ -460,7 +463,7 @@ class GitHubInstaller(Installer):
 
         data_dir = self._get_data_dir(tool, version)
         if data_dir.exists():
-            shutil.rmtree(data_dir)
+            self.platform.rmtree(data_dir)
         data_dir.mkdir(parents=True, exist_ok=True)
 
         if asset.name.endswith(".tar.gz") or asset.name.endswith(".tgz"):
@@ -556,9 +559,9 @@ class GitHubInstaller(Installer):
                     user_link.unlink()
                 else:
                     backup = user_link.with_suffix(".bak")
-                    shutil.move(str(user_link), str(backup))
+                    self.platform.move(Path(str(user_link)), Path(str(backup)))
             if dest.is_dir():
-                os.symlink(dest, user_link)
+                self.platform.create_symlink(dest, user_link)
 
         return InstallResult(True, f"Installed {tool.display_name}", self.name)
 
@@ -576,7 +579,7 @@ class GitHubInstaller(Installer):
             prefix = f"{tool.name}_"
             for item in data_dir.iterdir():
                 if item.is_dir() and item.name.startswith(prefix):
-                    shutil.rmtree(item)
+                    self.platform.rmtree(item)
 
         result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
         log_uninstall(tool.display_name, True, result.message)
@@ -602,7 +605,7 @@ class PackageManagerInstaller(Installer):
 
     def is_installed(self, tool: Tool) -> bool:
         cmd_name = get_command_name(tool)
-        which_path = shutil.which(cmd_name)
+        which_path = self.platform.which(cmd_name)
         if not which_path:
             return False
         quick_env_bin = Path(self.paths["quick_env_bin"]).resolve()
@@ -611,7 +614,7 @@ class PackageManagerInstaller(Installer):
 
     def get_version(self, tool: Tool) -> Optional[str]:
         cmd_name = get_command_name(tool)
-        which_path = shutil.which(cmd_name)
+        which_path = self.platform.which(cmd_name)
         if not which_path:
             return None
         try:
@@ -700,7 +703,7 @@ class DotfileInstaller(Installer):
         self.paths = get_env_paths()
 
     def is_available(self) -> bool:
-        return shutil.which("git") is not None
+        return self.platform.which("git") is not None
 
     def _get_dotfiles_dir(self, tool: Tool) -> Path:
         return Path(self.paths["quick_env_dotfiles"]) / tool.name
@@ -811,16 +814,11 @@ class DotfileInstaller(Installer):
                 dest_path.unlink()
             elif dest_path.exists():
                 backup = dest_path.with_suffix(".bak")
-                shutil.move(str(dest_path), str(backup))
+                self.platform.move(dest_path, Path(str(backup)))
 
-            if src.is_dir():
-                if self.platform.is_msys:
-                    return False
-                os.symlink(src, dest_path, target_is_directory=True)
-            else:
-                if self.platform.is_msys:
-                    return False
-                os.symlink(src, dest_path)
+            return self.platform.create_symlink(
+                src, dest_path, target_is_directory=src.is_dir()
+            )
 
             return True
         except OSError:
@@ -861,7 +859,7 @@ class DotfileInstaller(Installer):
                         False, f"Failed to update {tool.display_name}", self.name
                     )
             else:
-                shutil.rmtree(dest)
+                self.platform.rmtree(dest)
 
         dest.parent.mkdir(parents=True, exist_ok=True)
         try:
@@ -937,7 +935,7 @@ class DotfileInstaller(Installer):
             prefix = f"{tool.name}_"
             for item in data_dir.iterdir():
                 if item.is_dir() and item.name.startswith(prefix):
-                    shutil.rmtree(item)
+                    self.platform.rmtree(item)
 
         result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
         log_uninstall(tool.display_name, True, result.message)
@@ -949,7 +947,7 @@ class DotfileInstaller(Installer):
 
         dest = self._get_dotfiles_dir(tool)
         if dest.exists():
-            shutil.rmtree(dest)
+            self.platform.rmtree(dest)
 
         result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
         log_uninstall(tool.display_name, True, result.message)
@@ -1030,7 +1028,7 @@ class CustomScriptInstaller(Installer):
         if not tool.custom_script:
             return False
         cmd_name = tool.name
-        which_path = shutil.which(cmd_name)
+        which_path = self.platform.which(cmd_name)
         if which_path:
             quick_env_bin = Path(self.paths["quick_env_bin"]).resolve()
             tool_path = Path(which_path).resolve()
@@ -1102,7 +1100,10 @@ class CustomURLInstaller(Installer):
         self.paths = get_env_paths()
 
     def is_available(self) -> bool:
-        return shutil.which("curl") is not None or shutil.which("wget") is not None
+        return (
+            self.platform.which("curl") is not None
+            or self.platform.which("wget") is not None
+        )
 
     def _get_data_dir(self, tool: Tool, version: str = "latest") -> Path:
         clean_version = version.lstrip("v").replace("/", "-")
@@ -1175,10 +1176,10 @@ class CustomURLInstaller(Installer):
                 elif filename.endswith(".zip"):
                     extract_zip(cache_path, data_dir)
                 else:
-                    shutil.copy2(cache_path, data_dir / tool.name)
+                    self.platform.copy2(cache_path, data_dir / tool.name)
             else:
                 bin_path = data_dir / tool.name
-                shutil.copy2(cache_path, bin_path)
+                self.platform.copy2(cache_path, bin_path)
                 make_executable(bin_path)
 
             bin_path = self._get_bin_path(tool)
@@ -1238,7 +1239,7 @@ class CustomURLInstaller(Installer):
 
         for data_dir in Path(self.paths["quick_env_tools"]).glob(f"{tool.name}_*"):
             if data_dir.is_dir():
-                shutil.rmtree(data_dir)
+                self.platform.rmtree(data_dir)
 
         return InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
 
@@ -1272,7 +1273,7 @@ class InstallerFactory:
     def is_tool_available_in_system(cls, tool: Tool) -> bool:
         """检查工具命令是否在系统 PATH 中可用（不考虑 quick-env/bin）"""
         cmd_name = get_command_name(tool)
-        which_path = shutil.which(cmd_name)
+        which_path = self.platform.which(cmd_name)
         if not which_path:
             return False
 
@@ -1310,15 +1311,18 @@ class InstallerFactory:
 
     @classmethod
     def detect_tool(cls, tool: Tool) -> ToolDetection:
+        from .platform import detect_platform
+
         detection = ToolDetection(tool_name=tool.name)
         quick_env_bin = Path(get_env_paths()["quick_env_bin"]).resolve()
+        platform = detect_platform()
 
         for installer in cls.get_all_installers():
             if not installer.is_available():
                 continue
             if installer.is_installed(tool):
                 cmd_name = get_command_name(tool)
-                which_path = shutil.which(cmd_name)
+                which_path = platform.which(cmd_name)
                 is_current = False
                 if which_path:
                     tool_path = Path(which_path).resolve()

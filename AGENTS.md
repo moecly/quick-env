@@ -36,13 +36,13 @@
 
 ### 待实现
 
-- [ ] 目录结构重构：`data/` → `tools/`，新增 `dotfiles/` 目录
-- [ ] 新增 `type` 字段区分工具类型（`binary` / `dotfile`）
-- [ ] 新增 dotfile 配置格式（`links`、`exclude`、`config_branch`）
-- [ ] 实现 DotfileInstaller（支持 glob 模式链接）
-- [ ] 并行安装支持（`install all` 并发下载）
-- [ ] 配置迁移：更新 `tools.toml` 格式
-- [ ] 增强 doctor 命令：诊断工具状态（软链接、可用性、dotfile 链接）
+- [x] 目录结构重构：`data/` → `tools/`，新增 `dotfiles/` 目录
+- [x] 新增 `type` 字段区分工具类型（`binary` / `dotfile`）
+- [x] 新增 dotfile 配置格式（`links`、`exclude`、`config_branch`）
+- [x] 实现 DotfileInstaller（支持 glob 模式链接）
+- [x] 并行安装支持（`install all` 并发下载）
+- [x] 配置迁移：更新 `tools.toml` 格式
+- [x] 增强 doctor 命令：诊断工具状态（软链接、可用性、dotfile 链接）
 
 ## 开发规范
 
@@ -75,13 +75,9 @@ tests/
 
 | 功能 | 测试内容 |
 |------|----------|
-| type 字段 | 新增 type 字段测试 |
-| links 字段 | links 解析、glob 匹配、目录结构测试 |
-| exclude 字段 | exclude 解析、排除逻辑测试 |
 | DotfileInstaller | glob 匹配、目录结构、冲突处理测试 |
 | 并行安装 | 并发下载、错误处理测试 |
 | doctor 增强 | 7 层诊断测试 |
-| 目录重构 | 所有涉及路径的测试更新 |
 
 ## doctor 命令详细设计
 
@@ -147,10 +143,11 @@ doctor
 
 **输出示例**：
 ```
-[green]✓[green] lazygit   v0.40.0    OK
-[green]✓[green] fd        v8.4.7     OK
-[yellow]![yellow] rg      -          未安装（可从 GitHub 安装）
-[red]✗[red]   nvim      -          Broken symlink
+4. Binary Tools Check
+  ✓ lazygit      v0.40.0    OK
+  ✓ fd           v8.4.7     OK
+  ! rg           -          Not installed
+  ✗ nvim         -          Broken symlink
 ```
 
 ### 5. Dotfiles Check
@@ -169,22 +166,17 @@ doctor
 
 **输出示例**：
 ```
-[green]✓[green] tmux-config
-         ├─ Repo:    ~/.quick-env/dotfiles/tmux-config/
-         ├─ Link:    ~/.tmux.conf → repo
-         └─ Status:  Clean
-
-[green]✓[green] nvim-config
-         ├─ Repo:    ~/.quick-env/dotfiles/nvim-config/
-         ├─ Links:   3 links
-         │   ├─ ~/.config/nvim/ → nvim/
-         │   ├─ ~/.config/nvim/init.lua → init.lua
-         │   └─ ~/.config/nvim/lua/ → lua/
-         └─ Status:  Dirty (2 uncommitted changes)
-
-[red]✗[red]   zsh-config
-         ├─ Repo:    ~/.quick-env/dotfiles/zsh-config/
-         └─ Error:   Broken link ~/.zshrc
+5. Dotfiles Check
+  ✓ tmux-config (Clean)
+      ├─ Repo:    ~/.quick-env/dotfiles/tmux-config/
+      ├─ Branch:  main
+      ├─ Links:   1
+          ├─ ✓ ~/.tmux.conf
+  ✗ nvim-config (Clean)
+      ├─ Repo:    ~/.quick-env/dotfiles/nvim-config/
+      ├─ Branch:  main
+      ├─ Links:   1
+          ├─ ✗ ~/.config/nvim
 ```
 
 ### 6. PATH Check
@@ -197,25 +189,64 @@ doctor
 ### 汇总输出
 
 ```
-========================================
+==================================================
 quick-env Doctor Report
-========================================
-Platform: Linux (WSL) x86_64
-Time: 2024-01-15 10:30:00
+==================================================
+Platform: Linux (linux) x86_64
+Time: 2026-04-17 22:00:00
 
-[Summary]
-  System:     5/5 passed
-  Directory:  6/7 passed (1 warning)
+1. System Check
+  ✓ Python (version 3.12)
+  ✓ Git
+  ✓ curl/wget
+  ✓ Package Manager (apt)
+
+2. Directory Check
+  ✓ quick_env_home: ~/.quick-env
+  ✓ quick_env_bin: ~/.quick-env/bin
+  ✓ quick_env_cache: ~/.quick-env/cache
+  ✓ quick_env_tools: ~/.quick-env/tools
+  ✓ quick_env_dotfiles: ~/.quick-env/dotfiles
+  ✓ quick_env_logs: ~/.quick-env/logs
+  ✓ quick_env_config: ~/.quick-env/configs
+
+3. Config Check
+  ✓ Config exists: ~/.quick-env/configs/tools.toml
+      Tools: 7 (binary: 5, dotfile: 2)
+
+4. Binary Tools Check
+  ✓ lazygit      v0.40.0    OK
+  ✓ fd           v8.4.7     OK
+  ✗ tmux         -          Not found
+
+5. Dotfiles Check
+  ✓ tmux-config (Clean)
+      ├─ Repo:    ~/.quick-env/dotfiles/tmux-config/
+      ├─ Branch:  main
+      ├─ Links:   1
+          ├─ ✓ ~/.tmux.conf
+  ✗ nvim-config (Clean)
+      ├─ Repo:    ~/.quick-env/dotfiles/nvim-config/
+      ├─ Branch:  main
+      ├─ Links:   1
+          ├─ ✗ ~/.config/nvim
+
+6. PATH Check
+  ! ~/.quick-env/bin is NOT in PATH
+
+==================================================
+Summary
+  System:     4/4 passed
+  Directory:  7/7 passed
   Config:     OK
-  Binary:     3/4 passed, 1 not installed
-  Dotfiles:   2/3 passed, 1 broken link
-  PATH:       OK
+  Binary:     4/5 passed
+  Dotfiles:   1/2 passed
 
-[Action Required]
-  1. Add ~/.quick-env/bin to PATH
-  2. Fix broken link: zsh-config → ~/.zshrc
+Action Required
+  Add to PATH:
+    export PATH="$HOME/.quick-env/bin:$PATH"
 
-========================================
+==================================================
 ```
 
 ## 目录结构

@@ -351,6 +351,7 @@ def init():
 @app.command()
 def doctor():
     """Check system requirements."""
+    import subprocess
     from .platform import command_exists, detect_platform
     from .installer import InstallerFactory
     from datetime import datetime
@@ -472,11 +473,15 @@ def doctor():
                     if target_exists:
                         binary_passed += 1
                         icon = "[green]✓[/green]"
+                        status = "OK"
                     else:
                         icon = "[red]✗[/red]"
                         version = "-"
+                        status = "Broken symlink" if is_symlink else "Not found"
 
-                    console.print(f"  {icon} {tool.name:<12} {version or '-':<10} OK")
+                    console.print(
+                        f"  {icon} {tool.name:<12} {version or '-':<10} {status}"
+                    )
                 else:
                     console.print(
                         f"  [yellow]![/yellow] {tool.name:<12} -          Not installed"
@@ -501,75 +506,97 @@ def doctor():
                 repo_path = dotfiles_dir / tool.name
                 repo_exists = repo_path.exists()
 
-                if not repo_exists:
-                    console.print(f"  [red]✗[/red] {tool.name}")
-                    console.print(f"      Repo: Not cloned")
-                    continue
+                has_error = False
+                has_warning = False
+                warnings = []
+                errors = []
 
-                is_git = (repo_path / ".git").exists()
-                if not is_git:
-                    console.print(f"  [yellow]![/yellow] {tool.name}")
-                    console.print(f"      Repo: {repo_path} (not a git repo)")
-                    continue
+                if not repo_exists:
+                    has_error = True
+                    errors.append("Repo not cloned")
+                else:
+                    is_git = (repo_path / ".git").exists()
+                    if not is_git:
+                        has_warning = True
+                        warnings.append("Not a git repo")
 
                 current_branch = None
-                try:
-                    import subprocess
-
-                    result = subprocess.run(
-                        [
-                            "git",
-                            "-C",
-                            str(repo_path),
-                            "rev-parse",
-                            "--abbrev-ref",
-                            "HEAD",
-                        ],
-                        capture_output=True,
-                        text=True,
-                        timeout=5,
-                    )
-                    if result.returncode == 0:
-                        current_branch = result.stdout.strip()
-                except Exception:
-                    pass
+                if repo_exists:
+                    try:
+                        result = subprocess.run(
+                            [
+                                "git",
+                                "-C",
+                                str(repo_path),
+                                "rev-parse",
+                                "--abbrev-ref",
+                                "HEAD",
+                            ],
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                        )
+                        if result.returncode == 0:
+                            current_branch = result.stdout.strip()
+                    except Exception:
+                        pass
 
                 is_dirty = False
-                try:
-                    result = subprocess.run(
-                        ["git", "-C", str(repo_path), "status", "--porcelain"],
-                        capture_output=True,
-                        text=True,
-                        timeout=5,
-                    )
-                    is_dirty = bool(result.stdout.strip())
-                except Exception:
-                    pass
+                if repo_exists:
+                    try:
+                        result = subprocess.run(
+                            ["git", "-C", str(repo_path), "status", "--porcelain"],
+                            capture_output=True,
+                            text=True,
+                            timeout=5,
+                        )
+                        is_dirty = bool(result.stdout.strip())
+                    except Exception:
+                        pass
 
-                all_links_ok = True
-                broken_links = []
+                link_results = []
                 for link in tool.links:
                     dest = Path(os.path.expanduser(link.to))
-                    if not dest.exists() and not dest.is_symlink():
-                        all_links_ok = False
-                        broken_links.append(link.to)
-                    elif dest.is_symlink() and not dest.exists():
-                        all_links_ok = False
-                        broken_links.append(link.to)
+                    if dest.is_symlink() and not dest.exists():
+                        link_results.append(("✗", link.to, "Broken symlink"))
+                        has_error = True
+                    elif dest.exists():
+                        link_results.append(("✓", link.to, "OK"))
+                    else:
+                        link_results.append(("✗", link.to, "Not found"))
+                        has_error = True
 
-                if broken_links:
-                    console.print(f"  [red]✗[/red] {tool.name}")
-                    for bl in broken_links:
-                        console.print(f"      Broken link: {bl}")
+                if has_error:
+                    icon = "[red]✗[/red]"
+                elif has_warning or is_dirty:
+                    icon = "[yellow]![/yellow]"
                 else:
+                    icon = "[green]✓[/green]"
                     dotfile_passed += 1
-                    status = "Dirty" if is_dirty else "Clean"
-                    status_icon = (
-                        "[yellow]![/yellow]" if is_dirty else "[green]✓[/green]"
+
+                status = "Dirty" if is_dirty else "Clean"
+                console.print(f"  {icon} {tool.name} ({status})")
+
+                if repo_exists:
+                    console.print(f"      ├─ Repo:    {repo_path}")
+                    console.print(f"      ├─ Branch:  {current_branch or 'unknown'}")
+                else:
+                    console.print(
+                        f"      ├─ Repo:    {errors[0] if errors else 'Not found'}"
                     )
-                    console.print(f"  [green]✓[/green] {tool.name} ({status})")
-                    console.print(f"      Repo: {repo_path}")
-                    console.print(f"      Branch: {current_branch or 'unknown'}")
+
+                if link_results:
+                    console.print(f"      ├─ Links:   {len(link_results)}")
+                    for i, (status_icon, path, desc) in enumerate(link_results):
+                        prefix = "│   " if i < len(link_results) - 1 else "    "
+                        link_icon = (
+                            "[green]✓[/green]" if status_icon == "✓" else "[red]✗[/red]"
+                        )
+                        console.print(f"      {prefix}├─ {link_icon} {path}")
+
+                if errors:
+                    for err in errors:
+                        console.print(f"      └─ Error:   {err}")
 
     console.print()
 

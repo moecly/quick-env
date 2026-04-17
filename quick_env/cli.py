@@ -18,7 +18,7 @@ from .installer import InstallerFactory, InstallResult, get_version_info
 app = typer.Typer(
     name="quick-env",
     help="Cross-platform development environment setup tool",
-    add_completion=True,
+    add_completion=False,
 )
 console = Console()
 
@@ -95,10 +95,14 @@ def install(
 
 @app.command()
 def uninstall(
-    tools: List[str] = typer.Argument(..., help="Tool(s) to uninstall."),
+    tools: List[str] = typer.Argument(..., help="Tool(s) to uninstall. Use 'all' to uninstall everything."),
 ):
     """Uninstall tools from ~/.quick-env."""
     config = get_config()
+
+    if "all" in tools:
+        tools = list(config.get_all_tools().keys())
+
     installer = InstallerFactory.get_installer("github")
 
     for tool_name in tools:
@@ -311,12 +315,6 @@ def doctor():
     console.print(f"  echo 'export PATH=\"{quick_env_bin}:$PATH\"' >> ~/.bashrc")
     console.print(f"  echo 'export PATH=\"{quick_env_bin}:$PATH\"' >> ~/.zshrc\n")
     console.print(f"Then restart your shell or run:")
-    console.print(f"  source ~/.bashrc  # or ~/.zshrc")
-
-    console.print(f"\n[bold yellow]Tab Completion[/bold yellow]")
-    console.print(f"To enable tab completion, add this to your ~/.bashrc or ~/.zshrc:\n")
-    console.print(f"  [cyan]eval \"$(quick-env --show-completion)\"[/cyan]")
-    console.print(f"\nThen restart your shell or run:")
     console.print(f"  source ~/.bashrc  # or ~/.zshrc")
 
 

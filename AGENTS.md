@@ -22,13 +22,15 @@
   - `platform_commands` → `package_manager_commands`
 - [x] 测试读取项目配置，用户配置独立
 - [x] 错误处理（TOML 解析失败时打印信息）
+- [x] 日志功能（使用 `quick_env_logs` 目录，按天存储，保留 7 天）
+- [x] Tab 补全（启用 typer 自动补全）
+- [x] 配置编辑命令（`quick-env config edit`）
+- [x] 配置显示命令（`quick-env config show`）
+- [x] 自动创建必要目录（bin、cache、logs）
 
 ### 待实现
 
-- [ ] 日志功能（使用 `quick_env_logs` 目录）
-- [ ] Tab 补全（启用 typer 自动补全）
-- [ ] 配置编辑命令（`quick-env config edit`）
-- [ ] 自动创建必要目录（bin、cache、logs）
+- 无
 
 ## 目录结构
 
@@ -36,7 +38,7 @@
 ~/.quick-env/
 ├── bin/           # 安装的二进制文件
 ├── cache/         # 下载缓存
-├── logs/          # 日志文件（待实现）
+├── logs/          # 日志文件（按天存储，保留 7 天）
 └── configs/
     └── tools.toml  # 用户配置
 ```
@@ -102,6 +104,16 @@ quick-env list all          # 列出全部
 quick-env list --updates    # 显示有更新的
 quick-env info <tool>       # 查看详情
 quick-env doctor            # 系统检查
+quick-env config show       # 显示配置
+quick-env config edit       # 编辑配置
+```
+
+## Tab 补全
+
+在 `~/.bashrc` 或 `~/.zshrc` 中添加：
+
+```bash
+eval "$(quick-env --show-completion)"
 ```
 
 ## 注意事项
@@ -109,3 +121,4 @@ quick-env doctor            # 系统检查
 1. `installable_by` 只是声明支持哪些安装方式，实际选择由 `get_best_installer()` 按优先级决定
 2. `{version}` 在 asset_pattern 中会被替换为实际版本号
 3. asset 名称区分大小写，需与 GitHub Release 页面一致
+4. 日志保留 7 天，按天存储在 `~/.quick-env/logs/` 目录

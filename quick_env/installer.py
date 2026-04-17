@@ -13,6 +13,7 @@ from .github import GitHubAPI, GitHubRelease
 from .platform import Platform, detect_platform, detect_package_manager, PACKAGE_MANAGER_COMMANDS, get_env_paths
 from .tools import Tool
 from .downloader import download_file, extract_tarball, extract_zip, find_executable_in_dir, make_executable
+from .logger import log_install, log_uninstall
 
 
 @dataclass
@@ -301,10 +302,16 @@ class GitHubInstaller(Installer):
 
     def install(self, tool: Tool) -> InstallResult:
         if tool.config_repo:
-            return self._install_config(tool)
+            result = self._install_config(tool)
+            log_install(tool.display_name, result.version, self.name, result.success, result.message)
+            return result
         if not tool.repo or not tool.github_asset_patterns:
-            return InstallResult(False, "Tool does not support GitHub installation", self.name)
-        return self._install_binary(tool)
+            result = InstallResult(False, "Tool does not support GitHub installation", self.name)
+            log_install(tool.display_name, None, self.name, False, result.message)
+            return result
+        result = self._install_binary(tool)
+        log_install(tool.display_name, result.version, self.name, result.success, result.message)
+        return result
 
     def _install_binary(self, tool: Tool) -> InstallResult:
         try:
@@ -397,7 +404,9 @@ class GitHubInstaller(Installer):
         if dest.exists():
             dest.unlink()
 
-        return InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
+        result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
+        log_uninstall(tool.display_name, True, result.message)
+        return result
 
     def _get_config_dest(self, tool: Tool) -> Optional[Path]:
         if not tool.config_repo:
@@ -460,7 +469,9 @@ class PackageManagerInstaller(Installer):
 
     def uninstall(self, tool: Tool) -> InstallResult:
         if not self.manager or not tool.package_name:
-            return InstallResult(False, "Tool does not support uninstall via package manager", self.name)
+            result = InstallResult(False, "Tool does not support uninstall via package manager", self.name)
+            log_uninstall(tool.display_name, False, result.message)
+            return result
 
         uninstall_cmds = {
             "brew": f"brew uninstall {tool.package_name}",
@@ -474,13 +485,19 @@ class PackageManagerInstaller(Installer):
 
         cmd = uninstall_cmds.get(self.manager)
         if not cmd:
-            return InstallResult(False, f"Cannot uninstall {tool.package_name} via {self.manager}", self.name)
+            result = InstallResult(False, f"Cannot uninstall {tool.package_name} via {self.manager}", self.name)
+            log_uninstall(tool.display_name, False, result.message)
+            return result
 
         try:
             subprocess.run(cmd, shell=True, check=True, capture_output=True, text=True)
-            return InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
+            result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
+            log_uninstall(tool.display_name, True, result.message)
+            return result
         except subprocess.CalledProcessError as e:
-            return InstallResult(False, f"Uninstall failed: {e.stderr}", self.name)
+            result = InstallResult(False, f"Uninstall failed: {e.stderr}", self.name)
+            log_uninstall(tool.display_name, False, result.message)
+            return result
 
 
 class GitCloneInstaller(Installer):
@@ -557,7 +574,9 @@ class GitCloneInstaller(Installer):
 
     def uninstall(self, tool: Tool) -> InstallResult:
         if not tool.config_repo:
-            return InstallResult(False, "Tool does not support uninstall", self.name)
+            result = InstallResult(False, "Tool does not support uninstall", self.name)
+            log_uninstall(tool.display_name, False, result.message)
+            return result
 
         dest = self._get_config_dest(tool)
         if dest and dest.exists():
@@ -568,7 +587,9 @@ class GitCloneInstaller(Installer):
             if user_link.is_symlink():
                 user_link.unlink()
 
-        return InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
+        result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
+        log_uninstall(tool.display_name, True, result.message)
+        return result
 
     def _get_config_dest(self, tool: Tool) -> Optional[Path]:
         if not tool.config_repo:

@@ -47,13 +47,18 @@ class Config:
 
     @staticmethod
     def init_config() -> Path:
-        """初始化用户配置目录和文件"""
-        user_config = Config._get_user_config_path()
+        """初始化用户配置目录、文件及所有必要目录"""
+        from .platform import get_env_paths
+
         user_home = Config._get_user_home_path()
-
         user_home.mkdir(parents=True, exist_ok=True)
-        user_config.parent.mkdir(parents=True, exist_ok=True)
 
+        paths = get_env_paths()
+        for key, path in paths.items():
+            if key.startswith("quick_env_"):
+                Path(path).mkdir(parents=True, exist_ok=True)
+
+        user_config = Config._get_user_config_path()
         if not user_config.exists():
             built_in = Config.get_project_config_path()
             if built_in.exists():

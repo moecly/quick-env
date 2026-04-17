@@ -18,9 +18,12 @@ from .installer import InstallerFactory, InstallResult, get_version_info
 app = typer.Typer(
     name="quick-env",
     help="Cross-platform development environment setup tool",
-    add_completion=False,
+    add_completion=True,
 )
 console = Console()
+
+config_app = typer.Typer(help="Configuration management")
+app.add_typer(config_app, name="config")
 
 
 def version_callback(value: bool):
@@ -304,6 +307,42 @@ def doctor():
     console.print(f"  echo 'export PATH=\"{quick_env_bin}:$PATH\"' >> ~/.zshrc\n")
     console.print(f"Then restart your shell or run:")
     console.print(f"  source ~/.bashrc  # or ~/.zshrc")
+
+    console.print(f"\n[bold yellow]Tab Completion[/bold yellow]")
+    console.print(f"To enable tab completion, add this to your ~/.bashrc or ~/.zshrc:\n")
+    console.print(f"  [cyan]eval \"$(quick-env --show-completion)\"[/cyan]")
+    console.print(f"\nThen restart your shell or run:")
+    console.print(f"  source ~/.bashrc  # or ~/.zshrc")
+
+
+@config_app.command("edit")
+def config_edit():
+    """Open configuration file in default editor."""
+    import os
+    import subprocess
+
+    config_path = Config._get_user_config_path()
+    if not config_path.exists():
+        console.print(f"[yellow]Config not found. Run 'quick-env init' first.[/yellow]")
+        return
+
+    editor = os.environ.get("EDITOR", "nano")
+    subprocess.run([editor, str(config_path)])
+
+
+@config_app.command("show")
+def config_show():
+    """Show current configuration."""
+    config = get_config()
+    for name, tool in config.get_all_tools().items():
+        console.print(f"[cyan]{name}[/cyan]")
+        console.print(f"  display_name: {tool.display_name}")
+        console.print(f"  installable_by: {', '.join(tool.installable_by)}")
+        if tool.repo:
+            console.print(f"  repo: {tool.repo}")
+        if tool.priority:
+            console.print(f"  priority: {tool.priority}")
+        console.print()
 
 
 def main():

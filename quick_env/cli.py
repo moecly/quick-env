@@ -225,7 +225,6 @@ def doctor():
     console.print("[bold]System Check[/bold]\n")
 
     from .platform import command_exists
-    from .downloader import download_file
 
     checks = [
         ("Python", sys.version_info >= (3, 10)),
@@ -234,9 +233,12 @@ def doctor():
         ("Package Manager", detect_package_manager() is not None),
     ]
 
+    all_passed = True
     for name, passed in checks:
         check_status = "[green]✓[/green]" if passed else "[red]✗[/red]"
         console.print(f"{check_status} {name}")
+        if not passed:
+            all_passed = False
 
     pm = detect_package_manager()
     if pm:
@@ -245,11 +247,21 @@ def doctor():
         console.print("[red]✗[/red] Package manager: None")
 
     paths = get_env_paths()
-    console.print(f"\n[bold]Paths[/bold]")
+    console.print(f"\n[bold]Directories[/bold]")
     for key, value in paths.items():
         p = Path(value)
         exists = "[green]✓[/green]" if p.exists() else "[red]✗[/red]"
         console.print(f"{exists} {key}: {value}")
+
+    quick_env_bin = paths["quick_env_bin"]
+    console.print(f"\n[bold yellow]PATH Configuration[/bold yellow]")
+    console.print(f"Add the following to your ~/.bashrc or ~/.zshrc:\n")
+    console.print(f"  [cyan]export PATH=\"{quick_env_bin}:$PATH\"[/cyan]\n")
+    console.print(f"Or run this command:")
+    console.print(f"  echo 'export PATH=\"{quick_env_bin}:$PATH\"' >> ~/.bashrc")
+    console.print(f"  echo 'export PATH=\"{quick_env_bin}:$PATH\"' >> ~/.zshrc\n")
+    console.print(f"Then restart your shell or run:")
+    console.print(f"  source ~/.bashrc  # or ~/.zshrc")
 
 
 def main():

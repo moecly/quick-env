@@ -347,13 +347,6 @@ class GitHubInstaller(Installer):
             dest.unlink()
         shutil.copy2(executable, dest)
 
-        user_bin = Path(self.paths["bin_home"])
-        user_bin.mkdir(parents=True, exist_ok=True)
-        user_link = user_bin / tool.name
-        if user_link.exists() or user_link.is_symlink():
-            user_link.unlink()
-        os.symlink(dest, user_link)
-
         return InstallResult(True, f"Installed {tool.display_name} {release.tag_name}", self.name, release.tag_name)
 
     def _install_config(self, tool: Tool) -> InstallResult:
@@ -393,15 +386,10 @@ class GitHubInstaller(Installer):
 
     def uninstall(self, tool: Tool) -> InstallResult:
         bin_dir = Path(self.paths["quick_env_bin"])
-        user_bin = Path(self.paths["bin_home"])
-
         dest = bin_dir / tool.name
-        user_link = user_bin / tool.name
 
         if dest.exists():
             dest.unlink()
-        if user_link.exists() or user_link.is_symlink():
-            user_link.unlink()
 
         return InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
 

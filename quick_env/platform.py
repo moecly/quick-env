@@ -5,6 +5,7 @@ import platform
 import shutil
 import sys
 from dataclasses import dataclass
+from pathlib import Path
 from typing import Optional
 
 
@@ -17,7 +18,7 @@ class Platform:
 
     @property
     def is_windows(self) -> bool:
-        return self.system == "Windows"
+        return self.system == "Windows" or self.is_git_bash
 
     @property
     def is_macos(self) -> bool:
@@ -34,6 +35,55 @@ class Platform:
     @property
     def is_wsl(self) -> bool:
         return self.is_linux and os.path.exists("/proc/version") and "microsoft" in open("/proc/version").read().lower()
+
+    @property
+    def is_msys(self) -> bool:
+        return self.is_windows and ("MSYSTEM" in os.environ or "MSYS" in os.environ)
+
+    def exe_name(self, name: str) -> str:
+        if self.is_windows or self.is_msys:
+            return f"{name}.exe"
+        return name
+
+    def bin_name(self, name: str) -> str:
+        if self.is_msys:
+            return f"{name}.cmd"
+        return name
+
+    def find_exe(self, directory: Path, name: str) -> Optional[Path]:
+        exe = self.exe_name(name)
+        path = directory / exe
+        if path.exists():
+            return path
+        for p in directory.rglob(exe):
+            if p.is_file():
+                return p
+        return None
+
+    def is_bin_installed(self, bin_dir: Path, name: str) -> bool:
+        return (bin_dir / self.bin_name(name)).exists()
+
+    def install_bin_entry(self, bin_path: Path, target: Path) -> None:
+        if self.is_msys:
+            target_str = str(target)
+            content = f'@echo off\n"{target_str}" %*\n'
+            bin_path.write_text(content)
+        else:
+            os.symlink(target, bin_path)
+
+    def remove_bin_entry(self, bin_path: Path) -> None:
+        if bin_path.exists():
+            bin_path.unlink()
+
+    def get_bin_executable_path(self, bin_dir: Path, name: str) -> Optional[Path]:
+        bin_path = bin_dir / self.bin_name(name)
+        if not bin_path.exists():
+            return None
+        if self.is_msys:
+            return bin_path
+        if bin_path.is_symlink():
+            return bin_path.resolve()
+        return bin_path
 
 
 PLATFORM_MAP = {

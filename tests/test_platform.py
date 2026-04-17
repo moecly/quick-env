@@ -1,6 +1,9 @@
 """Tests for platform detection."""
 
+import os
 import unittest
+import tempfile
+from pathlib import Path
 from unittest.mock import patch
 from quick_env.platform import (
     detect_platform,
@@ -52,6 +55,96 @@ class TestPlatformDetection(unittest.TestCase):
                 self.assertTrue(platform.platform_name, "windows")
 
 
+class TestPlatformBinMethods(unittest.TestCase):
+    def setUp(self):
+        self.platform = detect_platform()
+
+    def test_exe_name_linux(self):
+        if not self.platform.is_linux:
+            self.skipTest("Not running on Linux")
+        self.assertEqual(self.platform.exe_name("lazygit"), "lazygit")
+
+    def test_exe_name_windows(self):
+        with patch("platform.system", return_value="Windows"):
+            with patch("platform.machine", return_value="AMD64"):
+                platform = detect_platform()
+                self.assertEqual(platform.exe_name("lazygit"), "lazygit.exe")
+
+    def test_exe_name_msys(self):
+        with patch("platform.system", return_value="MINGW64_NT"):
+            with patch("platform.machine", return_value="x86_64"):
+                with patch.dict(os.environ, {"MSYSTEM": "MINGW64"}):
+                    platform = detect_platform()
+                    self.assertEqual(platform.exe_name("lazygit"), "lazygit.exe")
+
+    def test_bin_name_linux(self):
+        if not self.platform.is_linux:
+            self.skipTest("Not running on Linux")
+        self.assertEqual(self.platform.bin_name("lazygit"), "lazygit")
+
+    def test_bin_name_msys(self):
+        with patch("platform.system", return_value="MINGW64_NT"):
+            with patch("platform.machine", return_value="x86_64"):
+                with patch.dict(os.environ, {"MSYSTEM": "MINGW64"}):
+                    platform = detect_platform()
+                    self.assertEqual(platform.bin_name("lazygit"), "lazygit.cmd")
+
+    def test_find_exe(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            exe = tmp / "test_app"
+            exe.touch()
+            result = self.platform.find_exe(tmp, "test_app")
+            self.assertEqual(result, exe)
+
+    def test_find_exe_with_suffix(self):
+        if self.platform.is_linux:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmp = Path(tmpdir)
+                exe = tmp / "test_app"
+                exe.touch()
+                result = self.platform.find_exe(tmp, "test_app")
+                self.assertEqual(result, exe)
+        else:
+            with tempfile.TemporaryDirectory() as tmpdir:
+                tmp = Path(tmpdir)
+                exe = tmp / "test_app.exe"
+                exe.touch()
+                result = self.platform.find_exe(tmp, "test_app")
+                self.assertEqual(result, exe)
+
+    def test_is_bin_installed(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            if self.platform.is_linux:
+                (tmp / "tool").touch()
+                self.assertTrue(self.platform.is_bin_installed(tmp, "tool"))
+            else:
+                (tmp / "tool.cmd").touch()
+                self.assertTrue(self.platform.is_bin_installed(tmp, "tool"))
+
+    def test_install_bin_entry_symlink(self):
+        if self.platform.is_msys:
+            self.skipTest("Not testing symlink on MSYS")
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            target = tmp / "target_app"
+            target.touch()
+            bin_path = tmp / "link"
+            self.platform.install_bin_entry(bin_path, target)
+            if self.platform.is_linux:
+                self.assertTrue(bin_path.is_symlink())
+                self.assertEqual(bin_path.resolve(), target.resolve())
+
+    def test_remove_bin_entry(self):
+        with tempfile.TemporaryDirectory() as tmpdir:
+            tmp = Path(tmpdir)
+            bin_path = tmp / "tool"
+            bin_path.touch()
+            self.platform.remove_bin_entry(bin_path)
+            self.assertFalse(bin_path.exists())
+
+
 class TestPackageManagerDetection(unittest.TestCase):
     @patch("quick_env.platform.shutil.which")
     def test_detect_brew(self, mock_which):
@@ -95,10 +188,12 @@ class TestGetEnvPaths(unittest.TestCase):
         self.assertIn("quick_env_home", paths)
         self.assertIn("quick_env_bin", paths)
         self.assertIn("quick_env_config", paths)
+        self.assertIn("quick_env_data", paths)
+        self.assertIn("quick_env_cache", paths)
 
     def test_quick_env_paths_contain_quick_env(self):
         paths = get_env_paths()
-        quick_env_keys = ["quick_env_home", "quick_env_bin", "quick_env_config"]
+        quick_env_keys = ["quick_env_home", "quick_env_bin", "quick_env_config", "quick_env_data"]
         for key in quick_env_keys:
             self.assertIn("quick-env", paths[key])
 

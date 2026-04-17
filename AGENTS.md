@@ -23,13 +23,15 @@
 - [x] 测试读取项目配置，用户配置独立
 - [x] 错误处理（TOML 解析失败时打印信息）
 - [x] 日志功能（使用 `quick_env_logs` 目录，按天存储，保留 7 天）
-- [x] Tab 补全（启用 typer 自动补全）
 - [x] 配置编辑命令（`quick-env config edit`）
 - [x] 配置显示命令（`quick-env config show`）
-- [x] 自动创建必要目录（bin、cache、logs）
+- [x] 自动创建必要目录（bin、cache、logs、data）
 - [x] 版本检测按优先级顺序
 - [x] 卸载只删 quick-env 的，不碰系统包
 - [x] 添加包管理器支持到 lazygit、fd、ripgrep
+- [x] 解压目录与 bin 入口分离（data/ + 软链接）
+- [x] 平台差异化统一入口（Platform 类）
+- [x] Git Bash/MSYS2 支持（使用 .cmd 脚本）
 
 ### 待实现
 
@@ -39,12 +41,19 @@
 
 ```
 ~/.quick-env/
-├── bin/           # 安装的二进制文件
-├── cache/         # 下载缓存
+├── bin/           # 软链接/脚本入口
+├── cache/         # 下载缓存（压缩包）
+├── data/          # 解压后的完整目录
 ├── logs/          # 日志文件（按天存储，保留 7 天）
 └── configs/
     └── tools.toml  # 用户配置
 ```
+
+### 安装结构说明
+
+- **Linux/macOS/WSL**: `bin/lazygit` → `../data/lazygit_0.40.0/lazygit`（软链接）
+- **Git Bash/MSYS2**: `bin/lazygit.cmd` → 调用 `../data/lazygit_0.40.0/lazygit.exe`
+- **Windows 原生**: 使用 `.cmd` 脚本（同 Git Bash）
 
 ## 配置说明
 
@@ -113,27 +122,23 @@ quick-env config show       # 显示配置
 quick-env config edit       # 编辑配置
 ```
 
-## Tab 补全
-
-在 `~/.bashrc` 或 `~/.zshrc` 中添加：
-
-```bash
-eval "$(quick-env --show-completion)"
-```
-
 ## 核心逻辑
 
 ### 安装逻辑
 1. 按 `installable_by` + `priority` 选择安装方式
 2. 已安装的工具会跳过安装（使用 `--force` 强制重新安装）
-3. 下载到 cache，解压后复制到 bin
+3. 下载到 cache/，解压到 data/<tool>_<version>/
+4. 创建 bin/<tool> 入口（软链接或 .cmd 脚本）
+5. 清理旧版本目录
 
 ### 版本检测逻辑
 1. 按 `installable_by` + `priority` 顺序检测
 2. 优先用配置中的优先级，没有则用默认值
+3. 先检查系统 PATH，找不到再检查 `~/.quick-env/bin/`
 
 ### 卸载逻辑
-- 只删除 `~/.quick-env/bin/` 中的文件
+- 删除 `~/.quick-env/bin/<tool>` 入口
+- 删除 `~/.quick-env/data/<tool>_<version>/` 目录
 - 不影响系统包管理器安装的工具
 
 ## 注意事项
@@ -143,3 +148,49 @@ eval "$(quick-env --show-completion)"
 3. asset 名称区分大小写，需与 GitHub Release 页面一致
 4. 日志保留 7 天，按天存储在 `~/.quick-env/logs/` 目录
 5. 配置文件修改后需要重启或重新加载
+
+## 平台差异化处理
+
+所有平台差异化逻辑统一在 `Platform` 类中处理：
+
+```python
+# platform.py
+@dataclass
+class Platform:
+    # 基础检测
+    is_windows: bool
+    is_macos: bool
+    is_linux: bool
+    is_git_bash: bool
+    is_wsl: bool
+    is_msys: bool  # Git Bash / MSYS2 环境
+    
+    # 统一入口方法
+    def exe_name(self, name: str) -> str:
+        """可执行文件名（带后缀）"""
+        
+    def bin_name(self, name: str) -> str:
+        """bin 入口文件名"""
+        
+    def find_exe(self, directory: Path, name: str) -> Optional[Path]:
+        """在目录中查找可执行文件"""
+        
+    def is_bin_installed(self, bin_dir: Path, name: str) -> bool:
+        """检测 bin 入口是否存在"""
+        
+    def install_bin_entry(self, bin_path: Path, target: Path) -> None:
+        """创建 bin 入口（软链接或 .cmd 脚本）"""
+        
+    def remove_bin_entry(self, bin_path: Path) -> None:
+        """删除 bin 入口"""
+        
+    def get_bin_executable_path(self, bin_dir: Path, name: str) -> Optional[Path]:
+        """获取 bin 入口指向的可执行文件路径"""
+```
+
+### 平台差异说明
+
+| 平台 | exe_name | bin_name | install_bin_entry |
+|------|----------|----------|-------------------|
+| Linux/macOS/WSL | `tool` | `tool` | 软链接 |
+| Git Bash/MSYS2 | `tool.exe` | `tool.cmd` | .cmd 脚本 |

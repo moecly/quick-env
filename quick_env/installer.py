@@ -474,12 +474,20 @@ class GitHubInstaller(Installer):
 
         bin_dir = Path(self.paths["quick_env_bin"])
         bin_dir.mkdir(parents=True, exist_ok=True)
-        bin_path = self._get_bin_path(tool)
 
-        self.platform.remove_bin_entry(bin_path)
+        if tool.bin_entries:
+            entries = tool.bin_entries
+        else:
+            entries = [tool.name]
 
-        relative_target = os.path.relpath(executable, bin_dir)
-        self.platform.install_bin_entry(bin_path, Path(relative_target))
+        for entry_name in entries:
+            exe = self._find_specific_executable(extracted, entry_name)
+            if exe:
+                make_executable(exe)
+                bin_path = bin_dir / self.platform.bin_name(entry_name)
+                self.platform.remove_bin_entry(bin_path)
+                relative_target = os.path.relpath(exe, bin_dir)
+                self.platform.install_bin_entry(bin_path, Path(relative_target))
 
         self._cleanup_old_versions(tool, version)
 
@@ -855,8 +863,12 @@ class DotfileInstaller(Installer):
 
     def _create_links(self, tool: Tool, repo_path: Path):
         for link_config in tool.links:
+            dest_path_str = link_config.get_target()
+            if not dest_path_str:
+                continue
+
             src_path = repo_path / link_config.glob
-            dest_path = Path(os.path.expanduser(link_config.to))
+            dest_path = Path(os.path.expanduser(dest_path_str))
 
             if src_path.exists():
                 self._create_link(src_path, dest_path)
@@ -1140,7 +1152,17 @@ class CustomURLInstaller(Installer):
             bin_path = self._get_bin_path(tool)
             target_exe = self._find_executable(data_dir, tool.name)
             if target_exe:
-                self.platform.install_bin_entry(bin_path, target_exe)
+                if tool.bin_entries:
+                    for entry_name in tool.bin_entries:
+                        exe = self._find_specific_executable(data_dir, entry_name)
+                        if exe:
+                            entry_bin_path = Path(
+                                self.paths["quick_env_bin"]
+                            ) / self.platform.bin_name(entry_name)
+                            self.platform.remove_bin_entry(entry_bin_path)
+                            self.platform.install_bin_entry(entry_bin_path, exe)
+                else:
+                    self.platform.install_bin_entry(bin_path, target_exe)
 
             version = self.get_version(tool)
             log_install(tool.display_name, self.name, f"Installed successfully")
@@ -1160,6 +1182,21 @@ class CustomURLInstaller(Installer):
         for pattern in ["*", "bin/*", f"{tool_name}*"]:
             for path in data_dir.rglob(pattern):
                 if path.is_file() and self.platform.find_exe(path.parent, tool_name):
+                    return path
+        return None
+
+    def _find_specific_executable(
+        self, data_dir: Path, entry_name: str
+    ) -> Optional[Path]:
+        """查找指定名称的可执行文件"""
+        exe_name = self.platform.exe_name(entry_name)
+        exe_path = data_dir / exe_name
+        if exe_path.exists():
+            return exe_path
+
+        for pattern in ["*", "bin/*", f"{entry_name}*"]:
+            for path in data_dir.rglob(pattern):
+                if path.is_file() and self.platform.find_exe(path.parent, entry_name):
                     return path
         return None
 

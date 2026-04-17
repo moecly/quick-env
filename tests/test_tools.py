@@ -184,5 +184,56 @@ class TestToolPriority(unittest.TestCase):
         self.assertEqual(tool.get_priority("github"), 100)
 
 
+class TestLinkConfigPlatform(unittest.TestCase):
+    def test_link_config_get_target_default(self):
+        from quick_env.tools import LinkConfig
+
+        link = LinkConfig(glob="*", to="~/.config/nvim")
+        self.assertEqual(link.get_target(), "~/.config/nvim")
+
+    def test_link_config_get_target_linux(self):
+        from quick_env.tools import LinkConfig
+
+        link = LinkConfig(
+            glob="*", to="~/.config/nvim", to_linux="~/.config/nvim-linux"
+        )
+        self.assertEqual(link.get_target("linux"), "~/.config/nvim-linux")
+
+    def test_link_config_get_target_macos(self):
+        from quick_env.tools import LinkConfig
+
+        link = LinkConfig(
+            glob="*", to="~/.config/nvim", to_macos="~/Library/Application Support/nvim"
+        )
+        self.assertEqual(link.get_target("macos"), "~/Library/Application Support/nvim")
+
+    def test_link_config_get_target_windows(self):
+        from quick_env.tools import LinkConfig
+
+        link = LinkConfig(
+            glob="*", to="~/.config/nvim", to_windows="~/AppData/Local/nvim"
+        )
+        self.assertEqual(link.get_target("windows"), "~/AppData/Local/nvim")
+
+    def test_link_config_get_target_fallback(self):
+        from quick_env.tools import LinkConfig
+
+        link = LinkConfig(glob="*", to="~/.config/nvim")
+        self.assertEqual(link.get_target("linux"), "~/.config/nvim")
+
+
+class TestToolBinEntries(unittest.TestCase):
+    def test_tool_bin_entries_default_empty(self):
+        from quick_env.tools import Tool
+
+        tool = Tool(name="test")
+        self.assertEqual(tool.bin_entries, [])
+
+    def test_tool_bin_entries_from_config(self):
+        config = Config.load_from(PROJECT_CONFIG)
+        tool = config.get_tool("lazygit")
+        self.assertIsNotNone(tool)
+
+
 if __name__ == "__main__":
     unittest.main()

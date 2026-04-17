@@ -4,17 +4,50 @@ from dataclasses import dataclass, field
 from typing import Optional
 
 
+def get_current_platform_key() -> str:
+    """获取当前平台的标识键"""
+    from .platform import detect_platform
+
+    p = detect_platform()
+    if p.is_windows:
+        return "windows"
+    elif p.is_macos:
+        return "macos"
+    elif p.is_linux:
+        return "linux"
+    return "default"
+
+
 @dataclass
 class LinkConfig:
     glob: str
-    to: str
+    to: str = ""
+    to_linux: str = ""
+    to_macos: str = ""
+    to_windows: str = ""
 
     @classmethod
     def from_dict(cls, data: dict) -> "LinkConfig":
         return cls(
             glob=data.get("glob", ""),
             to=data.get("to", ""),
+            to_linux=data.get("to_linux", ""),
+            to_macos=data.get("to_macos", ""),
+            to_windows=data.get("to_windows", ""),
         )
+
+    def get_target(self, platform: Optional[str] = None) -> str:
+        """根据平台获取目标路径"""
+        if platform is None:
+            platform = get_current_platform_key()
+
+        if platform == "windows" and self.to_windows:
+            return self.to_windows
+        if platform == "macos" and self.to_macos:
+            return self.to_macos
+        if platform == "linux" and self.to_linux:
+            return self.to_linux
+        return self.to
 
 
 @dataclass
@@ -38,6 +71,7 @@ class Tool:
     custom_url: Optional[str] = None
     custom_url_extract: bool = True
     custom_version_cmd: Optional[str] = None
+    bin_entries: list[str] = field(default_factory=list)
 
     def matches(self, name: str) -> bool:
         return name == self.name or name in self.aliases

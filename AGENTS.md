@@ -371,10 +371,44 @@ links = [
 |------|------|------|
 | `glob` | string | 仓库内文件/目录的 glob 匹配模式 |
 | `to` | string | 目标路径，支持 `~` 展开 |
+| `to_linux` | string | Linux 平台目标路径（可选） |
+| `to_macos` | string | macOS 平台目标路径（可选） |
+| `to_windows` | string | Windows 平台目标路径（可选） |
+
+**平台差异化示例**：
+```toml
+[tools.nvim-config]
+type = "dotfile"
+links = [
+    { 
+        glob = "*", 
+        to = "~/.config/nvim",
+        to_linux = "~/.config/nvim",
+        to_macos = "~/.config/nvim",
+        to_windows = "~/AppData/Local/nvim"
+    },
+]
+```
 
 ### exclude 字段说明
 
 使用 glob 语法排除文件，如 `["*.md", ".git", "LICENSE"]`
+
+### bin_entries 字段说明
+
+指定解压后哪些可执行文件需要创建软链接到 bin 目录：
+
+| 字段 | 类型 | 说明 |
+|------|------|------|
+| `bin_entries` | list[string] | 可执行文件名列表（不含扩展名） |
+
+**示例**：下载的压缩包包含多个可执行文件，只链接指定的：
+```toml
+[tools.my-tool]
+type = "binary"
+name = "my-tool"
+bin_entries = ["my-tool", "my-tool-gui"]  # 创建两个软链接
+```
 
 ### 扩展安装器
 

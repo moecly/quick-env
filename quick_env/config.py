@@ -117,6 +117,7 @@ class Config:
                 custom_url=tool_data.get("custom_url"),
                 custom_url_extract=tool_data.get("custom_url_extract", True),
                 custom_version_cmd=tool_data.get("custom_version_cmd"),
+                bin_entries=tool_data.get("bin_entries", []),
             )
 
     def get_tool(self, name: str) -> Optional[ToolConfig]:

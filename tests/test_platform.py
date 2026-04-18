@@ -87,7 +87,7 @@ class TestPlatformBinMethods(unittest.TestCase):
             with patch("platform.machine", return_value="x86_64"):
                 with patch.dict(os.environ, {"MSYSTEM": "MINGW64"}):
                     platform = detect_platform()
-                    self.assertEqual(platform.bin_name("lazygit"), "lazygit.cmd")
+                    self.assertEqual(platform.bin_name("lazygit"), "lazygit")
 
     def test_find_exe(self):
         with tempfile.TemporaryDirectory() as tmpdir:

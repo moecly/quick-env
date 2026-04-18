@@ -1058,7 +1058,11 @@ class CustomScriptInstaller(Installer):
     def install(self, tool: Tool) -> InstallResult:
         script = tool.custom_script
         if isinstance(script, dict):
-            script = script.get(self.platform.platform_name) or script.get("default")
+            script = (
+                script.get(self.platform.platform_arch)
+                or script.get(self.platform.platform_name)
+                or script.get("default")
+            )
         if not script:
             return InstallResult(
                 False, "No custom_script defined for this platform", self.name
@@ -1154,7 +1158,9 @@ class CustomURLInstaller(Installer):
         return None
 
     def install(self, tool: Tool) -> InstallResult:
-        url = tool.get_custom_url(self.platform.platform_name)
+        url = tool.get_custom_url(
+            self.platform.platform_name, self.platform.platform_arch
+        )
         if not url:
             return InstallResult(
                 False, "No custom_url defined for this platform", self.name

@@ -77,18 +77,25 @@ class Tool:
     def matches(self, name: str) -> bool:
         return name == self.name or name in self.aliases
 
-    def get_github_asset_pattern(self, platform: str) -> str | None:
-        if platform in self.github_asset_patterns:
-            return self.github_asset_patterns[platform]
-        if "default" in self.github_asset_patterns:
-            return self.github_asset_patterns["default"]
+    def get_github_asset_pattern(
+        self, platform: str, platform_arch: str = ""
+    ) -> str | None:
+        if isinstance(self.github_asset_patterns, dict):
+            if platform_arch and platform_arch in self.github_asset_patterns:
+                return self.github_asset_patterns[platform_arch]
+            if platform in self.github_asset_patterns:
+                return self.github_asset_patterns[platform]
+            if "default" in self.github_asset_patterns:
+                return self.github_asset_patterns["default"]
         return None
 
-    def get_custom_url(self, platform: str) -> str | None:
-        """根据平台获取 custom_url"""
+    def get_custom_url(self, platform: str, platform_arch: str = "") -> str | None:
+        """根据平台和架构获取 custom_url"""
         if self.custom_url is None:
             return None
         if isinstance(self.custom_url, dict):
+            if platform_arch and platform_arch in self.custom_url:
+                return self.custom_url[platform_arch]
             if platform in self.custom_url:
                 return self.custom_url[platform]
             if "default" in self.custom_url:

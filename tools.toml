@@ -106,12 +106,9 @@ package_name = "tmux"
 repo = "tmux/tmux"
 supported_on.windows = true
 supported_on.package_manager.windows = false
+custom_url = { windows_x86_64 = "https://github.com/moecly/tmux_for_windows/raw/master/tmux_for_git-bash.zip" }
 priority.package_manager = 10
 priority.custom_url = 20
-
-[tools.tmux.custom_url]
-windows_x86_64 = "https://github.com/moecly/tmux_for_windows/raw/master/tmux_for_git-bash.zip"
-aliases = []
 
 # ==================== Dotfiles ====================
 

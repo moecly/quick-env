@@ -31,7 +31,20 @@ class Platform:
 
     @property
     def is_linux(self) -> bool:
-        return self.system == "Linux"
+        return self.system == "Linux" and not self.is_termux
+
+    @property
+    def is_termux(self) -> bool:
+        return self.system == "Linux" and (
+            "TERMUX_VERSION" in os.environ
+            or "TERMUX_API_VERSION" in os.environ
+            or "TERMUX_MAIN_PACKAGE_FORMAT" in os.environ
+            or Path("/data/data/com.termux").exists()
+        )
+
+    @property
+    def is_android(self) -> bool:
+        return self.is_termux
 
     @property
     def is_git_bash(self) -> bool:
@@ -263,6 +276,14 @@ PLATFORM_MAP = {
     ("Linux", "armv7l"): ("linux", "armv7"),
     ("Linux", "arm64"): ("linux", "arm64"),
     ("Linux", "i686"): ("linux", "i686"),
+    # Termux/Android
+    ("Linux", "aarch64"): ("android", "arm64"),
+    ("Linux", "arm64"): ("android", "arm64"),
+    ("Linux", "armv8l"): ("android", "arm64"),
+    ("Linux", "armv7l"): ("android", "armv7"),
+    ("Linux", "i686"): ("android", "armv7"),
+    ("Linux", "i386"): ("android", "i386"),
+    ("Linux", "x86_64"): ("android", "x86_64"),
     # macOS
     ("Darwin", "x86_64"): ("darwin", "x86_64"),
     ("Darwin", "arm64"): ("darwin", "arm64"),
@@ -288,8 +309,29 @@ def detect_platform() -> Platform:
         elif arch == "arm64":
             arch = "arm64"
 
-    key = (system, arch)
-    platform_name, arch_name = PLATFORM_MAP.get(key, (system.lower(), arch))
+    # Detect Termux/Android environment and override platform mapping
+    is_termux = (
+        "TERMUX_VERSION" in os.environ
+        or "TERMUX_API_VERSION" in os.environ
+        or "TERMUX_MAIN_PACKAGE_FORMAT" in os.environ
+        or Path("/data/data/com.termux").exists()
+    )
+
+    if is_termux and system == "Linux":
+        # Map Linux architectures to Android/Termux
+        termux_arch_map = {
+            "aarch64": ("android", "arm64"),
+            "arm64": ("android", "arm64"),
+            "armv8l": ("android", "arm64"),
+            "armv7l": ("android", "armv7"),
+            "i686": ("android", "i686"),
+            "i386": ("android", "i386"),
+            "x86_64": ("android", "x86_64"),
+        }
+        platform_name, arch_name = termux_arch_map.get(arch, ("android", arch))
+    else:
+        key = (system, arch)
+        platform_name, arch_name = PLATFORM_MAP.get(key, (system.lower(), arch))
 
     return Platform(
         system=system,
@@ -304,6 +346,8 @@ def detect_package_manager() -> Optional[str]:
     p = detect_platform()
     if p.which("brew"):
         return "brew"
+    elif p.which("pkg"):
+        return "pkg"
     elif p.which("apt"):
         return "apt"
     elif p.which("apt-get"):
@@ -349,6 +393,10 @@ PACKAGE_MANAGER_COMMANDS = {
     "winget": {
         "install": "winget install --id {pkg} --silent",
         "check": "winget list --id {pkg}",
+    },
+    "pkg": {
+        "install": "pkg install {pkg}",
+        "check": "pkg list-installed {pkg}",
     },
 }
 

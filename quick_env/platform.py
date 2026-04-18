@@ -206,15 +206,14 @@ class Platform:
         if self.is_msys:
             bin_dir = bin_path.parent
             base_name = bin_path.stem
-            rel_target = os.path.relpath(target.resolve(), bin_dir)
+            target_abs = str(target.resolve()).replace("\\", "/")
 
             sh_path = bin_dir / f"{base_name}.sh"
-            content = f'#!/bin/bash\n"{rel_target}" "$@"\n'
+            content = f'#!/bin/bash\n"{target_abs}" "$@"\n'
             sh_path.write_text(content)
             os.chmod(sh_path, 0o755)
 
             cmd_path = bin_dir / f"{base_name}.cmd"
-            target_abs = str(target.resolve()).replace("\\", "/")
             content = f'@echo off\n"{target_abs}" %*\n'
             cmd_path.write_text(content)
 

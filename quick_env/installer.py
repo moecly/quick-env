@@ -408,11 +408,12 @@ class GitHubInstaller(Installer):
     def install(self, tool: Tool) -> InstallResult:
         if tool.config_repo:
             result = self._install_config(tool)
+            level = "INFO" if result.success else "ERROR"
             log_install(
                 tool.display_name,
-                result.version,
                 self.name,
-                result.success,
+                level,
+                result.version or "",
                 result.message,
             )
             return result
@@ -420,11 +421,12 @@ class GitHubInstaller(Installer):
             result = InstallResult(
                 False, "Tool does not support GitHub installation", self.name
             )
-            log_install(tool.display_name, None, self.name, False, result.message)
+            log_install(tool.display_name, self.name, "ERROR", "", result.message)
             return result
         result = self._install_binary(tool)
+        level = "INFO" if result.success else "ERROR"
         log_install(
-            tool.display_name, result.version, self.name, result.success, result.message
+            tool.display_name, self.name, level, result.version or "", result.message
         )
         return result
 
@@ -1070,7 +1072,11 @@ class CustomScriptInstaller(Installer):
 
         try:
             log_install(
-                tool.display_name, self.name, "Installing with custom script..."
+                tool.display_name,
+                self.name,
+                "INFO",
+                "",
+                "Installing with custom script...",
             )
             result = run_subprocess(
                 script,
@@ -1082,7 +1088,13 @@ class CustomScriptInstaller(Installer):
 
             if result.returncode == 0:
                 version = self.get_version(tool)
-                log_install(tool.display_name, self.name, f"Installed successfully")
+                log_install(
+                    tool.display_name,
+                    self.name,
+                    "INFO",
+                    version,
+                    "Installed successfully",
+                )
                 return InstallResult(
                     True, f"Installed {tool.display_name}", self.name, version
                 )
@@ -1174,7 +1186,7 @@ class CustomURLInstaller(Installer):
             cache_path = cache_dir / filename
 
             log_install(
-                tool.display_name, None, self.name, True, f"Downloading from {url}..."
+                tool.display_name, self.name, "INFO", "", f"Downloading from {url}..."
             )
             success = download_file(url, cache_path)
             if not success:
@@ -1211,7 +1223,9 @@ class CustomURLInstaller(Installer):
                     self.platform.install_bin_entry(bin_path, target_exe)
 
             version = self.get_version(tool)
-            log_install(tool.display_name, self.name, f"Installed successfully")
+            log_install(
+                tool.display_name, self.name, "INFO", version, "Installed successfully"
+            )
             return InstallResult(
                 True, f"Installed {tool.display_name}", self.name, version
             )
@@ -1412,16 +1426,17 @@ def install_parallel(
             try:
                 result = future.result()
                 results.append(result)
+                level = "INFO" if result.success else "ERROR"
                 log_install(
                     tool.display_name,
-                    result.version,
                     result.method,
-                    result.success,
+                    level,
+                    result.version or "",
                     result.message,
                 )
             except Exception as e:
                 result = InstallResult(False, f"Installation failed: {e}", "none")
                 results.append(result)
-                log_install(tool.display_name, None, "none", False, result.message)
+                log_install(tool.display_name, "none", "ERROR", "", result.message)
 
     return results

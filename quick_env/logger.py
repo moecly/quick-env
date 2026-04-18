@@ -1,89 +1,131 @@
-"""Logging module for quick-env."""
+"""Logging utilities for quick-env."""
 
 import logging
-from datetime import datetime, timedelta
+import sys
+from datetime import datetime
 from pathlib import Path
 from typing import Optional
 
-from .platform import get_env_paths
+
+def get_logger() -> logging.Logger:
+    """Get or create the logger instance."""
+    logger = logging.getLogger("quick_env")
+    if not logger.handlers:
+        logger.setLevel(logging.DEBUG)
+
+        console_handler = logging.StreamHandler(sys.stdout)
+        console_handler.setLevel(logging.WARNING)
+        console_format = logging.Formatter("%(message)s")
+        console_handler.setFormatter(console_format)
+
+        logger.addHandler(console_handler)
+    return logger
 
 
-_logger_cache: dict[str, logging.Logger] = {}
-
-
-def _cleanup_old_logs(log_dir: Path, days: int = 7):
-    """清理超过指定天数的日志"""
-    cutoff = datetime.now() - timedelta(days=days)
-    for log_file in log_dir.glob("*.log"):
-        if log_file.stat().st_mtime < cutoff.timestamp():
-            try:
-                log_file.unlink()
-            except OSError:
-                pass
-
-
-def get_logger(name: str = "quick-env") -> logging.Logger:
-    """获取日志记录器（日志按天存储，保留 7 天）"""
-    if name in _logger_cache:
-        return _logger_cache[name]
+def _get_log_file_path() -> Path:
+    """Get log file path with daily rotation."""
+    from .config import get_env_paths
 
     paths = get_env_paths()
     log_dir = Path(paths["quick_env_logs"])
     log_dir.mkdir(parents=True, exist_ok=True)
 
-    _cleanup_old_logs(log_dir, days=7)
-
-    log_file = log_dir / f"quick-env-{datetime.now():%Y%m%d}.log"
-
-    logger = logging.getLogger(name)
-    logger.setLevel(logging.INFO)
-    logger.handlers.clear()
-
-    handler = logging.FileHandler(log_file, encoding="utf-8")
-    formatter = logging.Formatter("%(asctime)s - %(levelname)s - %(message)s")
-    handler.setFormatter(formatter)
-    logger.addHandler(handler)
-
-    _logger_cache[name] = logger
-    return logger
+    today = datetime.now().strftime("%Y-%m-%d")
+    return log_dir / f"quick-env-{today}.log"
 
 
-def log_install(tool_name: str, version: Optional[str], method: str, success: bool, message: str = ""):
-    """记录安装操作"""
+def log_operation(
+    operation: str,
+    tool_name: str,
+    method: str,
+    level: str = "INFO",
+    version: str = "",
+    message: str = "",
+):
+    """通用的日志记录函数
+
+    Args:
+        operation: 操作类型 (INSTALL/UNINSTALL/UPGRADE/CHECK/LIST)
+        tool_name: 工具名称
+        method: 安装/操作方式 (github/custom_url/package_manager/dotfile/...)
+        level: 日志级别 (DEBUG/INFO/WARNING/ERROR)
+        version: 版本号 (可选)
+        message: 附加消息 (可选)
+    """
     logger = get_logger()
-    status = "SUCCESS" if success else "FAILED"
+    log_file = _get_log_file_path()
+
     version_str = f" v{version}" if version else ""
-    msg = f"[INSTALL] {status} - {tool_name}{version_str} via {method}"
+    msg = f"[{operation}] {level} - {tool_name}{version_str}"
+    if method:
+        msg += f" via {method}"
     if message:
         msg += f" - {message}"
-    if success:
-        logger.info(msg)
-    else:
+
+    timestamp = datetime.now().strftime("%Y-%m-%d %H:%M:%S")
+    log_line = f"{timestamp} {msg}\n"
+
+    if level == "ERROR":
         logger.error(msg)
-
-
-def log_uninstall(tool_name: str, success: bool, message: str = ""):
-    """记录卸载操作"""
-    logger = get_logger()
-    status = "SUCCESS" if success else "FAILED"
-    msg = f"[UNINSTALL] {status} - {tool_name}"
-    if message:
-        msg += f" - {message}"
-    if success:
-        logger.info(msg)
+    elif level == "WARNING":
+        logger.warning(msg)
+    elif level == "DEBUG":
+        logger.debug(msg)
     else:
-        logger.error(msg)
-
-
-def log_upgrade(tool_name: str, version: Optional[str], success: bool, message: str = ""):
-    """记录升级操作"""
-    logger = get_logger()
-    status = "SUCCESS" if success else "FAILED"
-    version_str = f" to v{version}" if version else ""
-    msg = f"[UPGRADE] {status} - {tool_name}{version_str}"
-    if message:
-        msg += f" - {message}"
-    if success:
         logger.info(msg)
-    else:
-        logger.error(msg)
+
+    try:
+        with open(log_file, "a", encoding="utf-8") as f:
+            f.write(log_line)
+    except Exception:
+        pass
+
+
+def log_install(
+    tool_name: str,
+    method: str,
+    level: str = "INFO",
+    version: str = "",
+    message: str = "",
+):
+    """记录安装操作 (兼容旧接口)"""
+    log_operation("INSTALL", tool_name, method, level, version, message)
+
+
+def log_uninstall(
+    tool_name: str,
+    level: str = "INFO",
+    version: str = "",
+    message: str = "",
+):
+    """记录卸载操作 (兼容旧接口)"""
+    log_operation("UNINSTALL", tool_name, "", level, version, message)
+
+
+def log_upgrade(
+    tool_name: str,
+    method: str,
+    level: str = "INFO",
+    version: str = "",
+    message: str = "",
+):
+    """记录升级操作 (兼容旧接口)"""
+    log_operation("UPGRADE", tool_name, method, level, version, message)
+
+
+def log_check(
+    tool_name: str,
+    level: str = "INFO",
+    message: str = "",
+):
+    """记录检查操作 (新增)"""
+    log_operation("CHECK", tool_name, "", level, "", message)
+
+
+def log_list(
+    tool_name: str,
+    level: str = "INFO",
+    message: str = "",
+):
+    """记录列表操作 (新增)"""
+    log_operation("LIST", tool_name, "", level, "", message)

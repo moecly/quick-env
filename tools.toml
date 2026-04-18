@@ -25,6 +25,8 @@ darwin_arm64 = "lazygit_{version}_darwin_arm64.tar.gz"
 windows_x86_64 = "lazygit_{version}_windows_x86_64.zip"
 windows_arm64 = "lazygit_{version}_windows_arm64.zip"
 windows_i686 = "lazygit_{version}_windows_32-bit.zip"
+# Termux/Android -复用 Linux ARM64
+android_arm64 = "lazygit_{version}_linux_arm64.tar.gz"
 
 [tools.fd]
 type = "binary"
@@ -53,6 +55,8 @@ linux_i686 = "fd-v{version}-i686-unknown-linux-gnu.tar.gz"
 darwin_arm64 = "fd-v{version}-aarch64-apple-darwin.tar.gz"
 windows_x86_64 = "fd-v{version}-x86_64-pc-windows-gnu.zip"
 windows_arm64 = "fd-v{version}-aarch64-pc-windows-msvc.zip"
+# Termux/Android -复用 Linux ARM64
+android_arm64 = "fd-v{version}-aarch64-unknown-linux-gnu.tar.gz"
 
 [tools.rg]
 type = "binary"
@@ -75,6 +79,8 @@ darwin_x86_64 = "ripgrep-{version}-x86_64-apple-darwin.tar.gz"
 darwin_arm64 = "ripgrep-{version}-aarch64-apple-darwin.tar.gz"
 windows_x86_64 = "ripgrep-{version}-x86_64-pc-windows-gnu.zip"
 windows_arm64 = "ripgrep-{version}-aarch64-pc-windows-msvc.zip"
+# Termux/Android -复用 Linux ARM64
+android_arm64 = "ripgrep-{version}-aarch64-unknown-linux-gnu.tar.gz"
 
 [tools.nvim]
 type = "binary"
@@ -95,6 +101,8 @@ darwin_x86_64 = "nvim-macos-x86_64.tar.gz"
 darwin_arm64 = "nvim-macos-arm64.tar.gz"
 windows_x86_64 = "nvim-win64.zip"
 windows_arm64 = "nvim-win-arm64.zip"
+# Termux/Android -复用 Linux ARM64
+android_arm64 = "nvim-linux-arm64.tar.gz"
 
 [tools.tmux]
 type = "binary"

@@ -204,24 +204,22 @@ class Platform:
 
     def install_bin_entry(self, bin_path: Path, target: Path) -> None:
         if self.is_msys:
-            target_str = str(target).replace("\\", "/")
+            bin_dir = bin_path.parent
+            rel_target = os.path.relpath(target.resolve(), bin_dir)
 
-            # 创建 .cmd 脚本（Windows CMD 使用）
-            cmd_path = bin_path.with_suffix(".cmd")
-            content = f'@echo off\n"{target_str}" %*\n'
-            cmd_path.write_text(content)
-
-            # 创建 .sh 脚本（Git Bash 使用）
             sh_path = bin_path.with_suffix(".sh")
-            content = f'#!/bin/bash\n"{target_str}" "$@"\n'
+            content = f'#!/bin/bash\n"{rel_target}" "$@"\n'
             sh_path.write_text(content)
             os.chmod(sh_path, 0o755)
 
-            # 创建无扩展名入口，使 which fd 能找到
-            no_ext_path = bin_path
-            content = f'#!/bin/bash\nexec "$(dirname "$0")/{sh_path.name}" "$@"\n'
-            no_ext_path.write_text(content)
-            os.chmod(no_ext_path, 0o755)
+            cmd_path = bin_path.with_suffix(".cmd")
+            target_abs = str(target.resolve()).replace("\\", "/")
+            content = f'@echo off\n"{target_abs}" %*\n'
+            cmd_path.write_text(content)
+
+            content = f'#!/bin/bash\nexec "$(dirname "$0")/$(basename "$0").sh" "$@"\n'
+            bin_path.write_text(content)
+            os.chmod(bin_path, 0o755)
         else:
             os.symlink(target, bin_path)
 

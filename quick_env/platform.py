@@ -205,13 +205,23 @@ class Platform:
     def install_bin_entry(self, bin_path: Path, target: Path) -> None:
         if self.is_msys:
             target_str = str(target).replace("\\", "/")
+
+            # 创建 .cmd 脚本（Windows CMD 使用）
             cmd_path = bin_path.with_suffix(".cmd")
-            sh_path = bin_path.with_suffix(".sh")
             content = f'@echo off\n"{target_str}" %*\n'
             cmd_path.write_text(content)
+
+            # 创建 .sh 脚本（Git Bash 使用）
+            sh_path = bin_path.with_suffix(".sh")
             content = f'#!/bin/bash\n"{target_str}" "$@"\n'
             sh_path.write_text(content)
             os.chmod(sh_path, 0o755)
+
+            # 创建无扩展名入口，使 which fd 能找到
+            no_ext_path = bin_path
+            content = f'#!/bin/bash\nexec "$(dirname "$0")/{sh_path.name}" "$@"\n'
+            no_ext_path.write_text(content)
+            os.chmod(no_ext_path, 0o755)
         else:
             os.symlink(target, bin_path)
 
@@ -225,6 +235,11 @@ class Platform:
                 cmd_path.unlink()
             if sh_path.exists():
                 sh_path.unlink()
+
+        # .sh 入口可能存在（install 时创建）
+        sh_path = bin_path.with_suffix(".sh")
+        if sh_path.exists():
+            sh_path.unlink()
 
     def get_bin_executable_path(self, bin_dir: Path, name: str) -> Optional[Path]:
         """获取 bin 入口指向的可执行文件路径"""

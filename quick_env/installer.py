@@ -516,16 +516,7 @@ class GitHubInstaller(Installer):
         self, data_dir: Path, entry_name: str
     ) -> Optional[Path]:
         """查找指定名称的可执行文件"""
-        exe_name = self.platform.exe_name(entry_name)
-        exe_path = data_dir / exe_name
-        if exe_path.exists():
-            return exe_path
-
-        for pattern in ["*", "bin/*", f"{entry_name}*"]:
-            for path in data_dir.rglob(pattern):
-                if path.is_file() and self.platform.find_exe(path.parent, entry_name):
-                    return path
-        return None
+        return self.platform.find_exe(data_dir, entry_name)
 
     def _install_config(self, tool: Tool) -> InstallResult:
         dest = self._get_config_dest(tool)
@@ -1234,31 +1225,13 @@ class CustomURLInstaller(Installer):
             return InstallResult(False, str(e), self.name)
 
     def _find_executable(self, data_dir: Path, tool_name: str) -> Optional[Path]:
-        exe_name = self.platform.exe_name(tool_name)
-        exe_path = data_dir / exe_name
-        if exe_path.exists():
-            return exe_path
-
-        for pattern in ["*", "bin/*", f"{tool_name}*"]:
-            for path in data_dir.rglob(pattern):
-                if path.is_file() and self.platform.find_exe(path.parent, tool_name):
-                    return path
-        return None
+        return self.platform.find_exe(data_dir, tool_name)
 
     def _find_specific_executable(
         self, data_dir: Path, entry_name: str
     ) -> Optional[Path]:
         """查找指定名称的可执行文件"""
-        exe_name = self.platform.exe_name(entry_name)
-        exe_path = data_dir / exe_name
-        if exe_path.exists():
-            return exe_path
-
-        for pattern in ["*", "bin/*", f"{entry_name}*"]:
-            for path in data_dir.rglob(pattern):
-                if path.is_file() and self.platform.find_exe(path.parent, entry_name):
-                    return path
-        return None
+        return self.platform.find_exe(data_dir, entry_name)
 
     def uninstall(self, tool: Tool) -> InstallResult:
         bin_path = self._get_bin_path(tool)

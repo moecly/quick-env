@@ -1,8 +1,4 @@
-# Quick Env - Default Tools Configuration
-
-# ==================== Binary Tools ====================
-
-[[tools.lazygit]]
+[tools.lazygit]
 name = "lazygit"
 type = "binary"
 display_name = "Lazygit"
@@ -25,7 +21,6 @@ darwin_x86_64 = "lazygit_{version}_darwin_x86_64.tar.gz"
 darwin_arm64 = "lazygit_{version}_darwin_arm64.tar.gz"
 windows_x86_64 = "lazygit_{version}_windows_x86_64.zip"
 windows_arm64 = "lazygit_{version}_windows_arm64.zip"
-windows_i686 = "lazygit_{version}_windows_32-bit.zip"
 android_arm64 = "lazygit_{version}_linux_arm64.tar.gz"
 
 [tools.lazygit.package_manager]
@@ -38,9 +33,10 @@ brew = "lazygit"
 dnf = "lazygit"
 pacman = "lazygit"
 winget = "lazygit"
+pkg = "lazygit"
 default = "lazygit"
 
-[[tools.fd]]
+[tools.fd]
 name = "fd"
 type = "binary"
 display_name = "FD"
@@ -65,7 +61,7 @@ windows_arm64 = "fd-v{version}-aarch64-pc-windows-msvc.zip"
 android_arm64 = "fd-v{version}-aarch64-unknown-linux-gnu.tar.gz"
 
 [tools.fd.package_manager]
-name = "fd-find"
+name = "fd"
 priority = 30
 
 [tools.fd.package_manager.commands]
@@ -73,9 +69,10 @@ apt = "fdfind"
 brew = "fd"
 dnf = "fd"
 pacman = "fd"
+pkg = "fd"
 default = "fd"
 
-[[tools.rg]]
+[tools.rg]
 name = "rg"
 type = "binary"
 display_name = "RipGrep"
@@ -109,9 +106,10 @@ apt = "ripgrep"
 brew = "ripgrep"
 dnf = "ripgrep"
 pacman = "ripgrep"
+pkg = "ripgrep"
 default = "ripgrep"
 
-[[tools.nvim]]
+[tools.nvim]
 name = "nvim"
 type = "binary"
 display_name = "Neovim"
@@ -143,9 +141,10 @@ apt = "neovim"
 brew = "neovim"
 dnf = "neovim"
 pacman = "neovim"
+pkg = "neovim"
 default = "neovim"
 
-[[tools.tmux]]
+[tools.tmux]
 name = "tmux"
 type = "binary"
 display_name = "Tmux"
@@ -162,12 +161,14 @@ apt = "tmux"
 brew = "tmux"
 dnf = "tmux"
 pacman = "tmux"
+pkg = "tmux"
+default = "tmux"
 
 [tools.tmux.custom_url]
 extract = true
 default = "https://github.com/tmux/tmux/releases/download/{version}/tmux-{version}-linux-x86_64.tar.gz"
 
-[[tools.tmux-config]]
+[tools.tmux-config]
 name = "tmux-config"
 type = "dotfile"
 display_name = "Tmux Config"
@@ -176,16 +177,12 @@ installable_by = ["dotfile"]
 config_repo = "moecly/tmux_config"
 config_branch = "main"
 exclude = ["*.md", "README.md"]
+links = [
+    {glob = ".tmux.conf", to = "~/.tmux.conf"},
+    {glob = ".tmux.conf.local", to = "~/.tmux.conf.local"}
+]
 
-[[tools.tmux-config.links]]
-glob = ".tmux.conf"
-to = "~/.tmux.conf"
-
-[[tools.tmux-config.links]]
-glob = ".tmux.conf.local"
-to = "~/.tmux.conf.local"
-
-[[tools.nvim-config]]
+[tools.nvim-config]
 name = "nvim-config"
 type = "dotfile"
 display_name = "Neovim Config"
@@ -194,7 +191,5 @@ installable_by = ["dotfile"]
 config_repo = "moecly/nvim-config"
 config_branch = "main"
 exclude = ["*.md", "README.md", ".git", "LICENSE", "lazyvim.json", "lazy-lock.json", "stylua.toml"]
-
-[[tools.nvim-config.links]]
-glob = "*"
-to = "~/.config/nvim/"
+links = [
+    {glob = "*", to = "~/.config/nvim/"}]

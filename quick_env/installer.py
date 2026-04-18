@@ -1173,7 +1173,9 @@ class CustomURLInstaller(Installer):
             filename = url.split("/")[-1].split("?")[0]
             cache_path = cache_dir / filename
 
-            log_install(tool.display_name, self.name, f"Downloading from {url}...")
+            log_install(
+                tool.display_name, None, self.name, True, f"Downloading from {url}..."
+            )
             success = download_file(url, cache_path)
             if not success:
                 return InstallResult(False, f"Failed to download {url}", self.name)

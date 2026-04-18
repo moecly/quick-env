@@ -253,36 +253,32 @@ class Platform:
                 resolved_target = (bin_dir / target).resolve()
 
             if not run:
-                if not resolved_target.exists():
-                    raise FileNotFoundError(
-                        f"Target executable not found: {resolved_target}"
-                    )
-
-                # 标准软链接
-                no_ext_path = bin_dir / base_name
-                target_str = str(resolved_target).replace("\\", "/")
-                content = f'#!/bin/bash\n"{target_str}" "$@"\n'
-                no_ext_path.write_text(content)
-                no_ext_path.chmod(0o755)
-
-                bat_path = bin_dir / f"{base_name}.bat"
-                target_abs = str(resolved_target).replace("/", "\\")
-                content = f'@echo off\n"{target_abs}" %*\n'
-                bat_path.write_text(content)
-        else:
-            # Linux/macOS/Termux - 使用软链接
-            if run:
-                # 自定义运行命令需要创建脚本
-                bin_dir = bin_path.parent
+                # 检查 target 是否存在
+                if target.exists():
+                    # target 存在（文件在 tools/）
+                    target_str = str(target)
+                    content = f'#!/bin/bash\n"{target_str}" "$@"\n'
+                else:
+                    # target 不存在（PackageManager 等），用 target 作为命令名
+                    cmd_name = target.name
+                    content = f'#!/bin/bash\n{cmd_name} "$@"\n'
+            else:
+                # 有自定义运行命令
                 cmd_parts = run.split()
-                exe_name = cmd_parts[0]
+                exe_path = cmd_parts[0]
                 args = " ".join(cmd_parts[1:]) if len(cmd_parts) > 1 else ""
                 
-                content = f'#!/bin/bash\n{exe_name} {args} "$@"\n'
-                bin_path.write_text(content)
-                bin_path.chmod(0o755)
-            else:
-                os.symlink(target, bin_path)
+                # 检查第一个参数是否是实际路径
+                target_check = Path(exe_path)
+                if target_check.exists():
+                    # 是实际路径
+                    content = f'#!/bin/bash\n"{exe_path}" {args} "$@"\n'
+                else:
+                    # 是命令名
+                    content = f'#!/bin/bash\n{exe_path} {args} "$@"\n'
+            
+            bin_path.write_text(content)
+            bin_path.chmod(0o755)
 
     def remove_bin_entry(self, bin_path: Path) -> None:
         if bin_path.exists():

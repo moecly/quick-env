@@ -5,7 +5,8 @@ display_name = "Lazygit"
 description = "Terminal UI for git commands"
 installable_by = ["github", "package_manager"]
 aliases = ["lg"]
-links = [{glob = "lazygit"}]
+links = [{glob = "lazygit", run = "lazygit"}]
+custom_version_cmd = "lazygit --version"
 
 [tools.lazygit.github]
 repo = "jesseduffield/lazygit"
@@ -43,7 +44,8 @@ display_name = "FD"
 description = "Simple, fast and user-friendly alternative to find"
 installable_by = ["github", "package_manager"]
 aliases = ["find"]
-links = [{glob = "fd"}]
+links = [{glob = "fd", run = "fd"}]
+custom_version_cmd = "fd --version"
 
 [tools.fd.github]
 repo = "sharkdp/fd"
@@ -79,7 +81,8 @@ display_name = "RipGrep"
 description = "Ultra fast grep alternative"
 installable_by = ["github", "package_manager"]
 aliases = ["ripgrep", "grep"]
-links = [{glob = "ripgrep"}]
+links = [{glob = "ripgrep", run = "ripgrep"}]
+custom_version_cmd = "rg --version"
 
 [tools.rg.github]
 repo = "BurntSushi/ripgrep"
@@ -116,7 +119,8 @@ display_name = "Neovim"
 description = "Hyperextensible Vim-based text editor"
 installable_by = ["github", "package_manager"]
 aliases = ["neovim"]
-links = [{glob = "nvim"}]
+links = [{glob = "nvim", run = "nvim"}]
+custom_version_cmd = "nvim --version"
 
 [tools.nvim.github]
 repo = "neovim/neovim"
@@ -150,7 +154,8 @@ type = "binary"
 display_name = "Tmux"
 description = "Terminal multiplexer"
 installable_by = ["package_manager", "custom_url"]
-links = [{glob = "tmux"}]
+links = [{glob = "tmux", run = "tmux"}]
+custom_version_cmd = "tmux -V"
 
 [tools.tmux.package_manager]
 name = "tmux"

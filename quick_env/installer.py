@@ -518,15 +518,27 @@ class GitHubInstaller(Installer):
             bin_path = bin_dir / self.platform.bin_name(bin_name)
             self.platform.remove_bin_entry(bin_path)
             
-            # 如果有自定义 run 命令，传递它
+            # 处理 run 命令和 target
             run_cmd = entry.run if hasattr(entry, 'run') else ""
             
             if run_cmd:
-                # 自定义运行命令，传递实际 exe 作为 target
-                self.platform.install_bin_entry(bin_path, exe, run_cmd)
+                # 有自定义运行命令
+                if exe and exe.exists():
+                    # exe 存在（GitHub/CustomURL），替换命令名为实际路径
+                    run_parts = run_cmd.split()
+                    run_parts[0] = str(exe.resolve())  # 替换为实际路径
+                    run_cmd = " ".join(run_parts)
+                # 如果 exe 不存在，保持原样（PackageManager 等）
+                self.platform.install_bin_entry(bin_path, Path(run_cmd.split()[0]), run_cmd)
             else:
-                relative_target = os.path.relpath(exe, bin_dir)
-                self.platform.install_bin_entry(bin_path, Path(relative_target))
+                # 无自定义运行命令
+                if exe and exe.exists():
+                    # exe 存在，引用实际文件
+                    relative_target = os.path.relpath(exe, bin_dir)
+                    self.platform.install_bin_entry(bin_path, Path(relative_target))
+                else:
+                    # exe 不存在（PackageManager 等），用命令名
+                    self.platform.install_bin_entry(bin_path, Path(glob))
 
         self._cleanup_old_versions(tool, version)
 

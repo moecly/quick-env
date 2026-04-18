@@ -205,21 +205,23 @@ class Platform:
     def install_bin_entry(self, bin_path: Path, target: Path) -> None:
         if self.is_msys:
             bin_dir = bin_path.parent
+            base_name = bin_path.stem
             rel_target = os.path.relpath(target.resolve(), bin_dir)
 
-            sh_path = bin_path.with_suffix(".sh")
+            sh_path = bin_dir / f"{base_name}.sh"
             content = f'#!/bin/bash\n"{rel_target}" "$@"\n'
             sh_path.write_text(content)
             os.chmod(sh_path, 0o755)
 
-            cmd_path = bin_path.with_suffix(".cmd")
+            cmd_path = bin_dir / f"{base_name}.cmd"
             target_abs = str(target.resolve()).replace("\\", "/")
             content = f'@echo off\n"{target_abs}" %*\n'
             cmd_path.write_text(content)
 
-            content = f'#!/bin/bash\nexec "$(dirname "$0")/$(basename "$0").sh" "$@"\n'
-            bin_path.write_text(content)
-            os.chmod(bin_path, 0o755)
+            no_ext_path = bin_dir / base_name
+            content = f'#!/bin/bash\nexec "$(dirname "$0")/{base_name}.sh" "$@"\n'
+            no_ext_path.write_text(content)
+            os.chmod(no_ext_path, 0o755)
         else:
             os.symlink(target, bin_path)
 

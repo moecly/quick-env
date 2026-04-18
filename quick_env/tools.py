@@ -109,10 +109,18 @@ class Tool:
         """检查工具在平台上是否支持（默认 True）"""
         if not self.supported_on:
             return True
-        # 1. 最具体：platform_arch (如 windows_x86_64)
+        # 1. 字符串格式：platform_arch (如 windows_x86_64)
         if platform_arch and platform_arch in self.supported_on:
             return self.supported_on[platform_arch]
-        # 2. platform (如 windows)
+        # 2. 嵌套格式：supported_on = {"windows": {"x86_64": True}}
+        if platform in self.supported_on:
+            inner = self.supported_on[platform]
+            if isinstance(inner, dict):
+                if platform_arch and platform_arch in inner:
+                    return inner[platform_arch]
+                default = inner.get("default", True)
+                return default
+        # 3. 字符串格式：platform (如 windows)
         return self.supported_on.get(platform, True)
 
     def is_installer_supported(
@@ -121,19 +129,27 @@ class Tool:
         """检查安装方式在平台上是否支持"""
         if not self.supported_on:
             return True
-        # 1. 最具体：installer.platform_arch (如 custom_url.windows_x86_64)
+        # 1. 字符串格式最具体：installer.platform_arch (如 custom_url.windows_x86_64)
         if platform_arch:
             key = f"{installer_name}.{platform_arch}"
             if key in self.supported_on:
                 return self.supported_on[key]
-        # 2. installer.platform (如 custom_url.windows)
+        # 2. 字符串格式：installer.platform (如 custom_url.windows)
         key = f"{installer_name}.{platform}"
         if key in self.supported_on:
             return self.supported_on[key]
-        # 3. platform_arch (如 windows_x86_64)
+        # 3. 嵌套格式：supported_on = {"package_manager": {"windows": False}}
+        if installer_name in self.supported_on:
+            inner = self.supported_on[installer_name]
+            if isinstance(inner, dict):
+                if platform_arch and platform_arch in inner:
+                    return inner[platform_arch]
+                if platform in inner:
+                    return inner[platform]
+        # 4. platform_arch (如 windows_x86_64)
         if platform_arch and platform_arch in self.supported_on:
             return self.supported_on[platform_arch]
-        # 4. platform (默认，如 windows)
+        # 5. platform (默认，如 windows)
         return self.supported_on.get(platform, True)
 
     def is_binary(self) -> bool:

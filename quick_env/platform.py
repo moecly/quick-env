@@ -208,14 +208,18 @@ class Platform:
 
     def install_bin_entry(self, bin_path: Path, target: Path) -> None:
         if self.is_msys:
-            resolved_target = target.resolve()
+            bin_dir = bin_path.parent
+            base_name = bin_path.stem
+
+            if target.is_absolute():
+                resolved_target = target
+            else:
+                resolved_target = (bin_dir / target).resolve()
+
             if not resolved_target.exists():
                 raise FileNotFoundError(
                     f"Target executable not found: {resolved_target}"
                 )
-
-            bin_dir = bin_path.parent
-            base_name = bin_path.stem
 
             no_ext_path = bin_dir / base_name
             content = f'@echo off\n"%~dp0{base_name}.bat" %*\n'

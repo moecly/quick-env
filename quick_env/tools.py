@@ -27,6 +27,7 @@ class LinkConfig:
     to_linux: str = ""
     to_macos: str = ""
     to_windows: str = ""
+    run: str = ""  # 自定义运行命令
 
     @classmethod
     def from_dict(cls, data: dict) -> "LinkConfig":
@@ -38,6 +39,7 @@ class LinkConfig:
             to_linux=data.get("to_linux", ""),
             to_macos=data.get("to_macos", ""),
             to_windows=data.get("to_windows", ""),
+            run=data.get("run", ""),
         )
 
     def get_target(self, platform: Optional[str] = None) -> str:
@@ -138,20 +140,24 @@ def get_current_platform_key() -> str:
 
 @dataclass
 class LinkConfig:
-    glob: str
+    glob: str = ""
     to: str = ""
     to_linux: str = ""
     to_macos: str = ""
     to_windows: str = ""
+    run: str = ""
 
     @classmethod
     def from_dict(cls, data: dict) -> "LinkConfig":
+        if isinstance(data, str):
+            return cls(glob=data, to=data)
         return cls(
             glob=data.get("glob", ""),
             to=data.get("to", ""),
             to_linux=data.get("to_linux", ""),
             to_macos=data.get("to_macos", ""),
             to_windows=data.get("to_windows", ""),
+            run=data.get("run", ""),
         )
 
     def get_target(self, platform: Optional[str] = None) -> str:

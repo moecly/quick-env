@@ -219,33 +219,70 @@ class Platform:
         """检查是否是文件"""
         return path.is_file()
 
-    def install_bin_entry(self, bin_path: Path, target: Path) -> None:
-        if self.is_msys:
+    def install_bin_entry(self, bin_path: Path, target: Path, run: str = "") -> None:
+        """创建 bin 入口
+        
+        Args:
+            bin_path: bin 入口路径
+            target: 目标可执行文件路径
+            run: 自定义运行命令（如 "xxx --port 7777"）
+        """
+        if self.is_msys or self.is_windows:
             bin_dir = bin_path.parent
             base_name = bin_path.stem
 
-            if target.is_absolute():
+            if run:
+                # 自定义运行命令
+                cmd_parts = run.split()
+                exe_name = cmd_parts[0]
+                args = " ".join(cmd_parts[1:]) if len(cmd_parts) > 1 else ""
+                
+                # 生成 .sh 脚本（Git Bash）
+                sh_path = bin_dir / base_name
+                content = f'#!/bin/bash\n{exe_name} {args} "$@"\n'
+                sh_path.write_text(content.replace("\\", "/"))
+                sh_path.chmod(0o755)
+                
+                # 生成 .bat 脚本（Windows）
+                bat_path = bin_dir / f"{base_name}.bat"
+                content = f'@echo off\n{exe_name} {args} %*\n'
+                bat_path.write_text(content.replace("/", "\\"))
+            elif target.is_absolute():
                 resolved_target = target
             else:
                 resolved_target = (bin_dir / target).resolve()
 
-            if not resolved_target.exists():
-                raise FileNotFoundError(
-                    f"Target executable not found: {resolved_target}"
-                )
+            if not run:
+                if not resolved_target.exists():
+                    raise FileNotFoundError(
+                        f"Target executable not found: {resolved_target}"
+                    )
 
-            no_ext_path = bin_dir / base_name
-            target_str = str(resolved_target).replace("\\", "/")
-            content = f'#!/bin/bash\n"{target_str}" "$@"\n'
-            no_ext_path.write_text(content)
-            no_ext_path.chmod(0o755)
+                # 标准软链接
+                no_ext_path = bin_dir / base_name
+                target_str = str(resolved_target).replace("\\", "/")
+                content = f'#!/bin/bash\n"{target_str}" "$@"\n'
+                no_ext_path.write_text(content)
+                no_ext_path.chmod(0o755)
 
-            bat_path = bin_dir / f"{base_name}.bat"
-            target_abs = str(resolved_target).replace("/", "\\")
-            content = f'@echo off\n"{target_abs}" %*\n'
-            bat_path.write_text(content)
+                bat_path = bin_dir / f"{base_name}.bat"
+                target_abs = str(resolved_target).replace("/", "\\")
+                content = f'@echo off\n"{target_abs}" %*\n'
+                bat_path.write_text(content)
         else:
-            os.symlink(target, bin_path)
+            # Linux/macOS/Termux - 使用软链接
+            if run:
+                # 自定义运行命令需要创建脚本
+                bin_dir = bin_path.parent
+                cmd_parts = run.split()
+                exe_name = cmd_parts[0]
+                args = " ".join(cmd_parts[1:]) if len(cmd_parts) > 1 else ""
+                
+                content = f'#!/bin/bash\n{exe_name} {args} "$@"\n'
+                bin_path.write_text(content)
+                bin_path.chmod(0o755)
+            else:
+                os.symlink(target, bin_path)
 
     def remove_bin_entry(self, bin_path: Path) -> None:
         if bin_path.exists():

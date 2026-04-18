@@ -476,8 +476,26 @@ def doctor(
                 system_path = platform.which(cmd_name)
                 issue = None
 
-                if system_path:
-                    version = None
+                # 使用自定义版本检测命令（优先）
+                version = None
+                if tool.custom_version_cmd:
+                    try:
+                        result = subprocess.run(
+                            tool.custom_version_cmd,
+                            shell=True,
+                            capture_output=True,
+                            text=True,
+                            encoding="utf-8",
+                            errors="replace",
+                            timeout=10,
+                        )
+                        output = result.stdout + result.stderr
+                        match = re.search(r"(\d+\.\d+\.?\d*)", output)
+                        if match:
+                            version = match.group(1)
+                    except Exception:
+                        pass
+                elif system_path:
                     try:
                         result = subprocess.run(
                             [cmd_name, "--version"],

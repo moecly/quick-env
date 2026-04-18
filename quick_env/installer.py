@@ -517,8 +517,16 @@ class GitHubInstaller(Installer):
             make_executable(exe)
             bin_path = bin_dir / self.platform.bin_name(bin_name)
             self.platform.remove_bin_entry(bin_path)
-            relative_target = os.path.relpath(exe, bin_dir)
-            self.platform.install_bin_entry(bin_path, Path(relative_target))
+            
+            # 如果有自定义 run 命令，传递它
+            run_cmd = entry.run if hasattr(entry, 'run') else ""
+            
+            if run_cmd:
+                # 自定义运行命令，传递实际 exe 作为 target
+                self.platform.install_bin_entry(bin_path, exe, run_cmd)
+            else:
+                relative_target = os.path.relpath(exe, bin_dir)
+                self.platform.install_bin_entry(bin_path, Path(relative_target))
 
         self._cleanup_old_versions(tool, version)
 

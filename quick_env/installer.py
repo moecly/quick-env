@@ -480,28 +480,45 @@ class GitHubInstaller(Installer):
                 archive_path.unlink()
             return InstallResult(False, "Extraction failed, cache cleared", self.name)
 
-        executable = self.platform.find_exe(extracted, tool.name)
-        if not executable:
-            return InstallResult(False, "Executable not found in archive", self.name)
-
-        make_executable(executable)
-
         bin_dir = Path(self.paths["quick_env_bin"])
         bin_dir.mkdir(parents=True, exist_ok=True)
 
-        if tool.bin_entries:
+        # 确定使用 links 还是 bin_entries
+        if tool.links:
+            entries = tool.links
+        elif tool.bin_entries:
             entries = tool.bin_entries
         else:
             entries = [tool.name]
 
-        for entry_name in entries:
-            exe = self._find_specific_executable(extracted, entry_name)
-            if exe:
-                make_executable(exe)
-                bin_path = bin_dir / self.platform.bin_name(entry_name)
-                self.platform.remove_bin_entry(bin_path)
-                relative_target = os.path.relpath(exe, bin_dir)
-                self.platform.install_bin_entry(bin_path, Path(relative_target))
+        for entry in entries:
+            # 解析 glob 和 bin 入口名
+            if hasattr(entry, 'glob'):
+                # LinkConfig 对象 (dotfile 或新的 binary links)
+                glob = entry.glob
+                bin_name = entry.to if entry.to else glob
+            else:
+                # 字符串形式 (兼容 bin_entries)
+                glob = entry
+                bin_name = entry
+
+            # 区分模糊搜索 vs 精确路径
+            if "/" in glob or "\\" in glob:
+                # 精确路径
+                exe = extracted / glob
+                if not exe.exists():
+                    continue
+            else:
+                # 模糊搜索
+                exe = self._find_specific_executable(extracted, glob)
+                if not exe:
+                    continue
+
+            make_executable(exe)
+            bin_path = bin_dir / self.platform.bin_name(bin_name)
+            self.platform.remove_bin_entry(bin_path)
+            relative_target = os.path.relpath(exe, bin_dir)
+            self.platform.install_bin_entry(bin_path, Path(relative_target))
 
         self._cleanup_old_versions(tool, version)
 

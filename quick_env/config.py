@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from .platform import detect_platform, Platform
-from .tools import Tool, LinkConfig
+from .tools import Tool, LinkConfig, GithubConfig, PackageManagerConfig, CustomUrlConfig
 
 
 class ToolConfig(Tool):
@@ -95,8 +95,44 @@ class Config:
             print(f"[red]File: {path}[/red]")
             sys.exit(1)
 
-        for name, tool_data in data.get("tools", {}).items():
-            links = [LinkConfig.from_dict(link) for link in tool_data.get("links", [])]
+        for name, tool_data_list in data.get("tools", {}).items():
+            # TOML [[tools.xxx]] 语法会创建一个数组
+            # 我们只取第一个元素
+            tool_data = tool_data_list[0] if isinstance(tool_data_list, list) else tool_data_list
+            
+            # 解析 links
+            links_raw = tool_data.get("links", [])
+            if links_raw and isinstance(links_raw[0], dict):
+                links = [LinkConfig.from_dict(link) for link in links_raw]
+            else:
+                links = []
+            
+            # 解析 github 配置
+            github_data = tool_data.get("github")
+            github_config = None
+            if github_data:
+                github_config = GithubConfig(
+                    repo=github_data.get("repo", ""),
+                    asset_patterns=github_data.get("asset_patterns", {}),
+                    supported=github_data.get("supported", {}),
+                    priority=github_data.get("priority", 10),
+                )
+            
+            # 解析 package_manager 配置
+            pm_data = tool_data.get("package_manager")
+            pm_config = None
+            if pm_data:
+                pm_config = PackageManagerConfig(
+                    name=pm_data.get("name", ""),
+                    commands=pm_data.get("commands", {}),
+                    priority=pm_data.get("priority", 30),
+                )
+            
+            # 解析 custom_url 配置
+            custom_url_data = tool_data.get("custom_url")
+            custom_url_config = None
+            if custom_url_data:
+                custom_url_config = CustomUrlConfig.from_dict(custom_url_data)
 
             self.tools[name] = ToolConfig(
                 name=tool_data.get("name", name),
@@ -104,21 +140,16 @@ class Config:
                 display_name=tool_data.get("display_name", name),
                 description=tool_data.get("description", ""),
                 installable_by=tool_data.get("installable_by", []),
-                priority=tool_data.get("priority", {}),
-                supported_on=tool_data.get("supported_on", {}),
-                package_name=tool_data.get("package_name"),
-                package_manager_commands=tool_data.get("package_manager_commands", {}),
-                repo=tool_data.get("repo"),
-                github_asset_patterns=tool_data.get("github_asset_patterns", {}),
-                config_repo=tool_data.get("config_repo"),
-                config_branch=tool_data.get("config_branch", "main"),
+                aliases=tool_data.get("aliases", []),
                 links=links,
                 exclude=tool_data.get("exclude", []),
-                aliases=tool_data.get("aliases", []),
-                custom_script=tool_data.get("custom_script"),
-                custom_url=tool_data.get("custom_url"),
-                custom_url_extract=tool_data.get("custom_url_extract", True),
-                custom_version_cmd=tool_data.get("custom_version_cmd"),
+                github=github_config,
+                package_manager=pm_config,
+                custom_url=custom_url_config,
+                _config_repo=tool_data.get("config_repo", ""),
+                _config_branch=tool_data.get("config_branch", "main"),
+                _custom_script=tool_data.get("custom_script", ""),
+                _custom_version_cmd=tool_data.get("custom_version_cmd", ""),
                 bin_entries=tool_data.get("bin_entries", []),
             )
 

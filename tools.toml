@@ -1,21 +1,22 @@
 # Quick Env - Default Tools Configuration
-# This file can be copied to ~/.quick-env/configs/tools.toml and customized
 
 # ==================== Binary Tools ====================
 
-[tools.lazygit]
-type = "binary"
+[[tools.lazygit]]
 name = "lazygit"
+type = "binary"
 display_name = "Lazygit"
 description = "Terminal UI for git commands"
 installable_by = ["github", "package_manager"]
-priority.github = 10
-priority.package_manager = 30
-package_name = "lazygit"
-repo = "jesseduffield/lazygit"
 aliases = ["lg"]
+links = [{glob = "lazygit"}]
 
-[tools.lazygit.github_asset_patterns]
+[tools.lazygit.github]
+repo = "jesseduffield/lazygit"
+priority = 10
+supported = {android = false}
+
+[tools.lazygit.github.asset_patterns]
 linux_x86_64 = "lazygit_{version}_linux_x86_64.tar.gz"
 linux_arm64 = "lazygit_{version}_linux_arm64.tar.gz"
 linux_armv7 = "lazygit_{version}_linux_armv6.tar.gz"
@@ -25,29 +26,35 @@ darwin_arm64 = "lazygit_{version}_darwin_arm64.tar.gz"
 windows_x86_64 = "lazygit_{version}_windows_x86_64.zip"
 windows_arm64 = "lazygit_{version}_windows_arm64.zip"
 windows_i686 = "lazygit_{version}_windows_32-bit.zip"
-# Termux/Android -复用 Linux ARM64
 android_arm64 = "lazygit_{version}_linux_arm64.tar.gz"
 
-[tools.fd]
-type = "binary"
+[tools.lazygit.package_manager]
+name = "lazygit"
+priority = 30
+
+[tools.lazygit.package_manager.commands]
+apt = "lazygit"
+brew = "lazygit"
+dnf = "lazygit"
+pacman = "lazygit"
+winget = "lazygit"
+default = "lazygit"
+
+[[tools.fd]]
 name = "fd"
+type = "binary"
 display_name = "FD"
 description = "Simple, fast and user-friendly alternative to find"
 installable_by = ["github", "package_manager"]
-priority.github = 10
-priority.package_manager = 30
-package_name = "fd-find"
-repo = "sharkdp/fd"
 aliases = ["find"]
+links = [{glob = "fd"}]
 
-[tools.fd.package_manager_commands]
-apt = "fdfind"
-brew = "fd"
-dnf = "fd"
-pacman = "fd"
-default = "fd"
+[tools.fd.github]
+repo = "sharkdp/fd"
+priority = 10
+supported = {android = false}
 
-[tools.fd.github_asset_patterns]
+[tools.fd.github.asset_patterns]
 linux_x86_64 = "fd-v{version}-x86_64-unknown-linux-gnu.tar.gz"
 linux_arm64 = "fd-v{version}-aarch64-unknown-linux-gnu.tar.gz"
 linux_armv7 = "fd-v{version}-arm-unknown-linux-gnueabihf.tar.gz"
@@ -55,22 +62,34 @@ linux_i686 = "fd-v{version}-i686-unknown-linux-gnu.tar.gz"
 darwin_arm64 = "fd-v{version}-aarch64-apple-darwin.tar.gz"
 windows_x86_64 = "fd-v{version}-x86_64-pc-windows-gnu.zip"
 windows_arm64 = "fd-v{version}-aarch64-pc-windows-msvc.zip"
-# Termux/Android -复用 Linux ARM64
 android_arm64 = "fd-v{version}-aarch64-unknown-linux-gnu.tar.gz"
 
-[tools.rg]
-type = "binary"
+[tools.fd.package_manager]
+name = "fd-find"
+priority = 30
+
+[tools.fd.package_manager.commands]
+apt = "fdfind"
+brew = "fd"
+dnf = "fd"
+pacman = "fd"
+default = "fd"
+
+[[tools.rg]]
 name = "rg"
+type = "binary"
 display_name = "RipGrep"
 description = "Ultra fast grep alternative"
 installable_by = ["github", "package_manager"]
-priority.github = 10
-priority.package_manager = 30
-package_name = "ripgrep"
-repo = "BurntSushi/ripgrep"
 aliases = ["ripgrep", "grep"]
+links = [{glob = "ripgrep"}]
 
-[tools.rg.github_asset_patterns]
+[tools.rg.github]
+repo = "BurntSushi/ripgrep"
+priority = 10
+supported = {android = false}
+
+[tools.rg.github.asset_patterns]
 linux_x86_64 = "ripgrep-{version}-x86_64-unknown-linux-musl.tar.gz"
 linux_arm64 = "ripgrep-{version}-aarch64-unknown-linux-gnu.tar.gz"
 linux_armv7 = "ripgrep-{version}-armv7-unknown-linux-gnueabihf.tar.gz"
@@ -79,112 +98,103 @@ darwin_x86_64 = "ripgrep-{version}-x86_64-apple-darwin.tar.gz"
 darwin_arm64 = "ripgrep-{version}-aarch64-apple-darwin.tar.gz"
 windows_x86_64 = "ripgrep-{version}-x86_64-pc-windows-gnu.zip"
 windows_arm64 = "ripgrep-{version}-aarch64-pc-windows-msvc.zip"
-# Termux/Android -复用 Linux ARM64
 android_arm64 = "ripgrep-{version}-aarch64-unknown-linux-gnu.tar.gz"
 
-[tools.nvim]
-type = "binary"
+[tools.rg.package_manager]
+name = "ripgrep"
+priority = 30
+
+[tools.rg.package_manager.commands]
+apt = "ripgrep"
+brew = "ripgrep"
+dnf = "ripgrep"
+pacman = "ripgrep"
+default = "ripgrep"
+
+[[tools.nvim]]
 name = "nvim"
+type = "binary"
 display_name = "Neovim"
 description = "Hyperextensible Vim-based text editor"
 installable_by = ["github", "package_manager"]
-priority.github = 10
-priority.package_manager = 30
-package_name = "neovim"
-repo = "neovim/neovim"
 aliases = ["neovim"]
+links = [{glob = "nvim"}]
 
-[tools.nvim.github_asset_patterns]
+[tools.nvim.github]
+repo = "neovim/neovim"
+priority = 10
+supported = {android = false}
+
+[tools.nvim.github.asset_patterns]
 linux_x86_64 = "nvim-linux-x86_64.tar.gz"
 linux_arm64 = "nvim-linux-arm64.tar.gz"
 darwin_x86_64 = "nvim-macos-x86_64.tar.gz"
 darwin_arm64 = "nvim-macos-arm64.tar.gz"
 windows_x86_64 = "nvim-win64.zip"
 windows_arm64 = "nvim-win-arm64.zip"
-# Termux/Android -复用 Linux ARM64
 android_arm64 = "nvim-linux-arm64.tar.gz"
 
-[tools.tmux]
-type = "binary"
+[tools.nvim.package_manager]
+name = "neovim"
+priority = 30
+
+[tools.nvim.package_manager.commands]
+apt = "neovim"
+brew = "neovim"
+dnf = "neovim"
+pacman = "neovim"
+default = "neovim"
+
+[[tools.tmux]]
 name = "tmux"
+type = "binary"
 display_name = "Tmux"
 description = "Terminal multiplexer"
 installable_by = ["package_manager", "custom_url"]
-package_name = "tmux"
-repo = "tmux/tmux"
-supported_on.windows = true
-supported_on.package_manager.windows = false
-custom_url = { windows_x86_64 = "https://github.com/moecly/tmux_for_windows/raw/master/tmux_for_git-bash.zip" }
-priority.package_manager = 10
-priority.custom_url = 20
+links = [{glob = "tmux"}]
 
-# ==================== Dotfiles ====================
+[tools.tmux.package_manager]
+name = "tmux"
+priority = 10
 
-[tools.tmux-config]
-type = "dotfile"
+[tools.tmux.package_manager.commands]
+apt = "tmux"
+brew = "tmux"
+dnf = "tmux"
+pacman = "tmux"
+
+[tools.tmux.custom_url]
+extract = true
+default = "https://github.com/tmux/tmux/releases/download/{version}/tmux-{version}-linux-x86_64.tar.gz"
+
+[[tools.tmux-config]]
 name = "tmux-config"
+type = "dotfile"
 display_name = "Tmux Config"
 description = "My tmux configuration"
 installable_by = ["dotfile"]
 config_repo = "moecly/tmux_config"
 config_branch = "main"
-links = [
-    { glob = ".tmux.conf", to = "~/.tmux.conf" },
-    { glob = ".tmux.conf.local", to = "~/.tmux.conf.local" },
-]
 exclude = ["*.md", "README.md"]
 
-[tools.nvim-config]
-type = "dotfile"
+[[tools.tmux-config.links]]
+glob = ".tmux.conf"
+to = "~/.tmux.conf"
+
+[[tools.tmux-config.links]]
+glob = ".tmux.conf.local"
+to = "~/.tmux.conf.local"
+
+[[tools.nvim-config]]
 name = "nvim-config"
+type = "dotfile"
 display_name = "Neovim Config"
 description = "My neovim configuration"
 installable_by = ["dotfile"]
 config_repo = "moecly/nvim-config"
 config_branch = "main"
-links = [
-    { glob = "*", to = "~/.config/nvim/" },
-]
 exclude = ["*.md", "README.md", ".git", "LICENSE", "lazyvim.json", "lazy-lock.json", "stylua.toml"]
 
-# ==================== Extension Examples (Commented Out) ====================
-# Uncomment and modify to use these examples
-
-# [tools.fzf]
-# type = "binary"
-# name = "fzf"
-# display_name = "FZF"
-# description = "General-purpose command-line fuzzy finder"
-# installable_by = ["custom_script", "github", "package_manager"]
-# custom_script = "git clone --depth 1 https://github.com/junegunn/fzf.git ~/.quick-env/tools/fzf_src && ~/.quick-env/tools/fzf_src/install --all --no-bash --no-fish --no-zsh"
-# custom_version_cmd = "fzf --version"
-# priority.custom_script = 5
-# priority.github = 10
-# priority.package_manager = 30
-# package_name = "fzf"
-# repo = "junegunn/fzf"
-# aliases = ["fz"]
-
-# [tools.delta]
-# type = "binary"
-# name = "delta"
-# display_name = "Delta"
-# description = "Syntax-highlighting pager for git"
-# installable_by = ["custom_url", "github"]
-# custom_url = "https://github.com/dandavison/delta/releases/download/0.18.1/delta-0.18.1-x86_64-unknown-linux-musl.tar.gz"
-# custom_url_extract = true
-# custom_version_cmd = "delta --version"
-# priority.custom_url = 5
-# priority.github = 10
-# repo = "dandavison/delta"
-# aliases = ["git-delta"]
-
-# [tools.my-tool]
-# type = "binary"
-# name = "my-tool"
-# display_name = "My Tool"
-# description = "Example custom tool installation"
-# installable_by = ["custom_url"]
-# custom_url = "https://example.com/my-tool.tar.gz"
-# custom_url_extract = true
-# priority.custom_url = 10
+[[tools.nvim-config.links]]
+glob = "*"
+to = "~/.config/nvim/"

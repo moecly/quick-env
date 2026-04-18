@@ -222,8 +222,10 @@ class Platform:
                 )
 
             no_ext_path = bin_dir / base_name
-            content = f'@echo off\n"%~dp0{base_name}.bat" %*\n'
+            target_str = str(resolved_target).replace("\\", "/")
+            content = f'#!/bin/bash\n"{target_str}" "$@"\n'
             no_ext_path.write_text(content)
+            no_ext_path.chmod(0o755)
 
             bat_path = bin_dir / f"{base_name}.bat"
             target_abs = str(resolved_target).replace("/", "\\")

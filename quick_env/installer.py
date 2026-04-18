@@ -316,6 +316,50 @@ class Installer(ABC):
     def uninstall(self, tool: Tool) -> InstallResult:
         pass
 
+    def _create_bin_entry(self, tool: Tool) -> None:
+        """默认创建 bin 入口 - 子类可覆盖"""
+        # Dotfiles 不需要
+        if tool.type == "dotfile":
+            return
+            
+        if not tool.links:
+            return
+
+        from .platform import detect_platform, get_env_paths
+
+        platform = detect_platform()
+        paths = get_env_paths()
+        bin_dir = Path(paths["quick_env_bin"])
+
+        for link in tool.links:
+            cmd_name = link.to if link.to else link.glob
+            run_cmd = link.run if link.run else ""
+
+            # 使用 which 获取系统命令路径
+            system_path = platform.which(cmd_name)
+
+            bin_path = bin_dir / platform.bin_name(cmd_name)
+            platform.remove_bin_entry(bin_path)
+
+            if run_cmd:
+                # 自定义运行命令
+                if system_path:
+                    # 替换命令名为实际系统路径
+                    run_parts = run_cmd.split()
+                    run_parts[0] = system_path
+                    run_cmd = " ".join(run_parts)
+                    platform.install_bin_entry(bin_path, Path(system_path), run_cmd)
+                else:
+                    # 系统路径不存在，使用命令名
+                    platform.install_bin_entry(bin_path, Path(cmd_name), run_cmd)
+            else:
+                # 无自定义命令
+                if system_path:
+                    platform.install_bin_entry(bin_path, Path(system_path))
+                else:
+                    # 使用命令名（假设在 PATH 中）
+                    platform.install_bin_entry(bin_path, Path(cmd_name))
+
 
 class GitHubInstaller(Installer):
     name = "github"
@@ -688,6 +732,7 @@ class PackageManagerInstaller(Installer):
                 cmd, shell=True, check=True, capture_output=True, text=True
             )
             version = self.get_version(tool)
+            self._create_bin_entry(tool)
             return InstallResult(
                 True,
                 f"Installed {tool.display_name} via {self.manager}",
@@ -743,6 +788,10 @@ class DotfileInstaller(Installer):
     def __init__(self):
         self.platform = detect_platform()
         self.paths = get_env_paths()
+
+    def _create_bin_entry(self, tool: Tool) -> None:
+        """Dotfile 不需要 bin 入口"""
+        pass
 
     def is_available(self) -> bool:
         return self.platform.which("git") is not None
@@ -1128,6 +1177,7 @@ class CustomScriptInstaller(Installer):
 
             if result.returncode == 0:
                 version = self.get_version(tool)
+                self._create_bin_entry(tool)
                 log_install(
                     tool.display_name,
                     self.name,

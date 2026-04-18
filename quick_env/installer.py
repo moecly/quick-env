@@ -219,7 +219,19 @@ def get_version_info(tool: Tool) -> VersionInfo:
         if executable and executable.exists():
             which_path = str(executable)
 
-    if which_path:
+    # 使用自定义版本检测命令（优先）
+    if tool.custom_version_cmd:
+        try:
+            result = run_subprocess(
+                tool.custom_version_cmd, shell=True, capture_output=True, text=True, timeout=10
+            )
+            output = result.stdout + result.stderr
+            match = re.search(r"(\d+\.\d+\.?\d*)", output)
+            if match:
+                info.current = match.group(1)
+        except Exception:
+            pass
+    elif which_path:
         try:
             result = run_subprocess(
                 [which_path, "--version"], capture_output=True, text=True, timeout=5

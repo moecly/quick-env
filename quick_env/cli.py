@@ -476,8 +476,11 @@ def doctor(
                 system_path = platform.which(cmd_name)
                 issue = None
 
-                # 使用自定义版本检测命令（优先）
+                # 初始化默认值
                 version = None
+                version_str = "-"
+
+                # 使用自定义版本检测命令（优先）
                 if tool.custom_version_cmd:
                     try:
                         result = subprocess.run(

@@ -24,7 +24,7 @@ def get_logger() -> logging.Logger:
 
 def _get_log_file_path() -> Path:
     """Get log file path with daily rotation."""
-    from .config import get_env_paths
+    from .platform import get_env_paths
 
     paths = get_env_paths()
     log_dir = Path(paths["quick_env_logs"])

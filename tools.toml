@@ -67,7 +67,7 @@ name = "fd"
 priority = 30
 
 [tools.fd.package_manager.commands]
-apt = "fdfind"
+apt = "fd-find"
 brew = "fd"
 dnf = "fd"
 pacman = "fd"

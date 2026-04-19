@@ -299,14 +299,6 @@ PLATFORM_MAP = {
     ("Linux", "armv7l"): ("linux", "armv7"),
     ("Linux", "arm64"): ("linux", "arm64"),
     ("Linux", "i686"): ("linux", "i686"),
-    # Termux/Android
-    ("Linux", "aarch64"): ("android", "arm64"),
-    ("Linux", "arm64"): ("android", "arm64"),
-    ("Linux", "armv8l"): ("android", "arm64"),
-    ("Linux", "armv7l"): ("android", "armv7"),
-    ("Linux", "i686"): ("android", "armv7"),
-    ("Linux", "i386"): ("android", "i386"),
-    ("Linux", "x86_64"): ("android", "x86_64"),
     # macOS
     ("Darwin", "x86_64"): ("darwin", "x86_64"),
     ("Darwin", "arm64"): ("darwin", "arm64"),

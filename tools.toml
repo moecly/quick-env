@@ -81,7 +81,7 @@ display_name = "RipGrep"
 description = "Ultra fast grep alternative"
 installable_by = ["github", "package_manager"]
 aliases = ["ripgrep", "grep"]
-links = [{glob = "ripgrep", run = "ripgrep"}]
+links = [{glob = "rg", run = "rg"}]
 custom_version_cmd = "rg --version"
 
 [tools.rg.github]
@@ -160,6 +160,7 @@ custom_version_cmd = "tmux -V"
 [tools.tmux.package_manager]
 name = "tmux"
 priority = 10
+supported = {windows = false}
 
 [tools.tmux.package_manager.commands]
 apt = "tmux"

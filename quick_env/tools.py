@@ -67,7 +67,9 @@ class GithubConfig:
         """检查平台是否支持"""
         return self.supported.get(platform, True)
 
-    def get_asset_pattern(self, platform_arch: str, platform: str = "") -> Optional[str]:
+    def get_asset_pattern(
+        self, platform_arch: str, platform: str = ""
+    ) -> Optional[str]:
         """获取 asset pattern"""
         # 先找 platform_arch
         if platform_arch and platform_arch in self.asset_patterns:
@@ -96,7 +98,7 @@ class PackageManagerConfig:
         return self.name
 
 
-@dataclass  
+@dataclass
 class CustomUrlConfig:
     urls: dict[str, str] = field(default_factory=dict)
     extract: bool = True
@@ -120,6 +122,40 @@ class CustomUrlConfig:
         if "default" in self.urls:
             return self.urls["default"]
         return None
+
+
+@dataclass
+class CustomScriptConfig:
+    scripts: dict[str, str] = field(default_factory=dict)
+    priority: int = 5
+    supported: dict[str, bool] = field(default_factory=dict)
+
+    @classmethod
+    def from_dict(cls, data: Any) -> "CustomScriptConfig":
+        if isinstance(data, str):
+            return cls(scripts={"default": data})
+        if isinstance(data, dict):
+            supported = data.get("supported", {})
+            scripts = {
+                k: v for k, v in data.items() if k != "supported" and k != "priority"
+            }
+            priority = data.get("priority", 5)
+            return cls(scripts=scripts, priority=priority, supported=supported)
+        return cls()
+
+    def get_script(self, platform_arch: str, platform: str = "") -> Optional[str]:
+        """获取安装脚本"""
+        if platform_arch and platform_arch in self.scripts:
+            return self.scripts[platform_arch]
+        if platform and platform in self.scripts:
+            return self.scripts[platform]
+        if "default" in self.scripts:
+            return self.scripts["default"]
+        return None
+
+    def is_supported(self, platform: str) -> bool:
+        """检查平台是否支持"""
+        return self.supported.get(platform, True)
 
 
 def get_current_platform_key() -> str:
@@ -184,20 +220,20 @@ class Tool:
     aliases: list[str] = field(default_factory=list)
     links: list[LinkConfig] = field(default_factory=list)
     exclude: list[str] = field(default_factory=list)
-    
+
     # 新嵌套配置
     github: GithubConfig = None
     package_manager: PackageManagerConfig = None
     custom_url: CustomUrlConfig = None
-    
+    custom_script: CustomScriptConfig = None
+
     # Dotfile 配置
     _config_repo: str = ""
     _config_branch: str = "main"
-    
-    # 自定义脚本
-    _custom_script: str = ""
+
+    # 自定义版本检测命令
     _custom_version_cmd: str = ""
-    
+
     # 二进制入口
     bin_entries: list[str] = field(default_factory=list)
 
@@ -208,23 +244,23 @@ class Tool:
     @property
     def repo(self) -> str:
         return self.github.repo if self.github else ""
-    
+
     @property
     def github_asset_patterns(self) -> dict:
         return self.github.asset_patterns if self.github else {}
-    
+
     @property
     def package_name(self) -> str:
         return self.package_manager.name if self.package_manager else ""
-    
+
     @property
     def package_manager_commands(self) -> dict:
         return self.package_manager.commands if self.package_manager else {}
-    
+
     @property
     def custom_url_extract(self) -> bool:
         return self.custom_url.extract if self.custom_url else True
-    
+
     @property
     def priority(self) -> dict:
         """兼容旧的 priority 属性"""
@@ -234,7 +270,7 @@ class Tool:
         if self.package_manager:
             result["package_manager"] = self.package_manager.priority
         return result
-    
+
     @property
     def supported_on(self) -> dict:
         """兼容旧的 supported_on 属性"""
@@ -242,41 +278,45 @@ class Tool:
         if self.github and self.github.supported:
             result["github"] = self.github.supported
         return result
-    
+
     @property
     def repo(self) -> str:
         return self.github.repo if self.github else ""
-    
-    @property
-    def custom_script(self) -> str:
-        return self._custom_script if self._custom_script else ""
-    
+
     @property
     def custom_version_cmd(self) -> str:
         return self._custom_version_cmd if self._custom_version_cmd else ""
-    
+
     @property
     def config_repo(self) -> str:
         return self._config_repo if self._config_repo else ""
-    
+
     @property
     def config_branch(self) -> str:
         return self._config_branch if self._config_branch else "main"
-    
-    def get_priority(self, platform: str, installer_name: str, default: int = 100) -> int:
+
+    def get_priority(
+        self, platform: str, installer_name: str, default: int = 100
+    ) -> int:
         """获取优先级"""
         if installer_name == "github" and self.github:
             return self.github.priority
         if installer_name == "package_manager" and self.package_manager:
             return self.package_manager.priority
+        if installer_name == "custom_script" and self.custom_script:
+            return self.custom_script.priority
         return default
-    
-    def is_installer_supported(self, platform: str, installer_name: str, platform_arch: str = "") -> bool:
+
+    def is_installer_supported(
+        self, platform: str, installer_name: str, platform_arch: str = ""
+    ) -> bool:
         """检查安装方式是否支持"""
         if installer_name == "github" and self.github:
             return self.github.is_supported(platform)
         if installer_name == "package_manager" and self.package_manager:
             return True
+        if installer_name == "custom_script" and self.custom_script:
+            return self.custom_script.is_supported(platform)
         return True
 
     def get_github_asset_pattern(
@@ -306,10 +346,13 @@ class Tool:
         self, platform: str, installer_name: str, default: int = 100
     ) -> int:
         """根据平台和安装方式获取优先级"""
-        key = f"{platform}.{installer_name}"
-        if key in self.priority:
-            return self.priority[key]
-        return self.priority.get(installer_name, default)
+        if installer_name == "github" and self.github:
+            return self.github.priority
+        if installer_name == "package_manager" and self.package_manager:
+            return self.package_manager.priority
+        if installer_name == "custom_script" and self.custom_script:
+            return self.custom_script.priority
+        return default
 
     def is_platform_supported(self, platform: str, platform_arch: str = "") -> bool:
         """检查工具在平台上是否支持（默认 True）"""

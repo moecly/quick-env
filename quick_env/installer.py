@@ -223,7 +223,11 @@ def get_version_info(tool: Tool) -> VersionInfo:
     if tool.custom_version_cmd:
         try:
             result = run_subprocess(
-                tool.custom_version_cmd, shell=True, capture_output=True, text=True, timeout=10
+                tool.custom_version_cmd,
+                shell=True,
+                capture_output=True,
+                text=True,
+                timeout=10,
             )
             output = result.stdout + result.stderr
             match = re.search(r"(\d+\.\d+\.?\d*)", output)
@@ -321,7 +325,7 @@ class Installer(ABC):
         # Dotfiles 不需要
         if tool.type == "dotfile":
             return
-            
+
         if not tool.links:
             return
 
@@ -549,7 +553,7 @@ class GitHubInstaller(Installer):
 
         for entry in entries:
             # 解析 glob 和 bin 入口名
-            if hasattr(entry, 'glob'):
+            if hasattr(entry, "glob"):
                 # LinkConfig 对象 (dotfile 或新的 binary links)
                 glob = entry.glob
                 bin_name = entry.to if entry.to else glob
@@ -573,10 +577,10 @@ class GitHubInstaller(Installer):
             make_executable(exe)
             bin_path = bin_dir / self.platform.bin_name(bin_name)
             self.platform.remove_bin_entry(bin_path)
-            
+
             # 处理 run 命令和 target
-            run_cmd = entry.run if hasattr(entry, 'run') else ""
-            
+            run_cmd = entry.run if hasattr(entry, "run") else ""
+
             if run_cmd:
                 # 有自定义运行命令
                 if exe and exe.exists():
@@ -585,7 +589,9 @@ class GitHubInstaller(Installer):
                     run_parts[0] = str(exe.resolve())  # 替换为实际路径
                     run_cmd = " ".join(run_parts)
                 # 如果 exe 不存在，保持原样（PackageManager 等）
-                self.platform.install_bin_entry(bin_path, Path(run_cmd.split()[0]), run_cmd)
+                self.platform.install_bin_entry(
+                    bin_path, Path(run_cmd.split()[0]), run_cmd
+                )
             else:
                 # 无自定义运行命令
                 if exe and exe.exists():
@@ -1147,13 +1153,13 @@ class CustomScriptInstaller(Installer):
         return None
 
     def install(self, tool: Tool) -> InstallResult:
-        script = tool.custom_script
-        if isinstance(script, dict):
-            script = (
-                script.get(self.platform.platform_arch)
-                or script.get(self.platform.platform_name)
-                or script.get("default")
+        script = (
+            tool.custom_script.get_script(
+                self.platform.platform_arch, self.platform.platform_name
             )
+            if tool.custom_script
+            else None
+        )
         if not script:
             return InstallResult(
                 False, "No custom_script defined for this platform", self.name
@@ -1407,13 +1413,6 @@ class InstallerFactory:
 
         if tool.is_dotfile():
             return cls.get_installer("dotfile")
-
-        if tool.custom_script:
-            if tool.is_installer_supported(
-                platform_key, "custom_script", platform_arch
-            ):
-                return cls.get_installer("custom_script")
-            return None
 
         available = []
         for name in tool.installable_by:

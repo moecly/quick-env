@@ -98,15 +98,19 @@ class Config:
         for name, tool_data_list in data.get("tools", {}).items():
             # TOML [[tools.xxx]] 语法会创建一个数组
             # 我们只取第一个元素
-            tool_data = tool_data_list[0] if isinstance(tool_data_list, list) else tool_data_list
-            
+            tool_data = (
+                tool_data_list[0]
+                if isinstance(tool_data_list, list)
+                else tool_data_list
+            )
+
             # 解析 links
             links_raw = tool_data.get("links", [])
             if links_raw and isinstance(links_raw[0], dict):
                 links = [LinkConfig.from_dict(link) for link in links_raw]
             else:
                 links = []
-            
+
             # 解析 github 配置
             github_data = tool_data.get("github")
             github_config = None
@@ -117,7 +121,7 @@ class Config:
                     supported=github_data.get("supported", {}),
                     priority=github_data.get("priority", 10),
                 )
-            
+
             # 解析 package_manager 配置
             pm_data = tool_data.get("package_manager")
             pm_config = None
@@ -127,12 +131,20 @@ class Config:
                     commands=pm_data.get("commands", {}),
                     priority=pm_data.get("priority", 30),
                 )
-            
+
             # 解析 custom_url 配置
             custom_url_data = tool_data.get("custom_url")
             custom_url_config = None
             if custom_url_data:
                 custom_url_config = CustomUrlConfig.from_dict(custom_url_data)
+
+            # 解析 custom_script 配置
+            custom_script_data = tool_data.get("custom_script")
+            custom_script_config = None
+            if custom_script_data:
+                from .tools import CustomScriptConfig  # 延迟导入避免循环依赖
+
+                custom_script_config = CustomScriptConfig.from_dict(custom_script_data)
 
             self.tools[name] = ToolConfig(
                 name=tool_data.get("name", name),
@@ -146,9 +158,9 @@ class Config:
                 github=github_config,
                 package_manager=pm_config,
                 custom_url=custom_url_config,
+                custom_script=custom_script_config,
                 _config_repo=tool_data.get("config_repo", ""),
                 _config_branch=tool_data.get("config_branch", "main"),
-                _custom_script=tool_data.get("custom_script", ""),
                 _custom_version_cmd=tool_data.get("custom_version_cmd", ""),
                 bin_entries=tool_data.get("bin_entries", []),
             )

@@ -132,9 +132,9 @@ class TestPlatformBinMethods(unittest.TestCase):
             target.touch()
             bin_path = tmp / "link"
             self.platform.install_bin_entry(bin_path, target)
-            if self.platform.is_linux:
-                self.assertTrue(bin_path.is_symlink())
-                self.assertEqual(bin_path.resolve(), target.resolve())
+            self.assertTrue(bin_path.is_file())
+            content = bin_path.read_text()
+            self.assertTrue(content.startswith("#!/bin/bash"))
 
     def test_remove_bin_entry(self):
         with tempfile.TemporaryDirectory() as tmpdir:

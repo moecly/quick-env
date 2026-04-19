@@ -220,70 +220,60 @@ class Platform:
         return path.is_file()
 
     def install_bin_entry(self, bin_path: Path, target: Path, run: str = "") -> None:
-        """创建 bin 入口
-        
+        """创建 bin 入口（所有系统都使用无扩展名 shell 脚本）
+
         Args:
             bin_path: bin 入口路径
             target: 目标可执行文件路径
             run: 自定义运行命令（如 "xxx --port 7777"）
         """
-        if self.is_msys or self.is_windows:
-            bin_dir = bin_path.parent
+        bin_dir = bin_path.parent
+
+        # 构建脚本内容
+        if run:
+            cmd_parts = run.split()
+            exe_name = cmd_parts[0]
+            args = " ".join(cmd_parts[1:]) if len(cmd_parts) > 1 else ""
+
+            target_check = Path(exe_name)
+            if target_check.exists():
+                content = f'#!/bin/bash\n"{exe_name}" {args} "$@"\n'
+            else:
+                content = f'#!/bin/bash\n{exe_name} {args} "$@"\n'
+        elif target.exists():
+            target_str = str(target).replace("\\", "/")
+            content = f'#!/bin/bash\n"{target_str}" "$@"\n'
+        else:
+            cmd_name = target.name
+            content = f'#!/bin/bash\n{cmd_name} "$@"\n'
+
+        # 写入无扩展名脚本（所有系统）
+        bin_path.write_text(content)
+        bin_path.chmod(0o755)
+
+        # Windows 额外生成 .bat 脚本
+        if self.is_windows:
             base_name = bin_path.stem
 
             if run:
-                # 自定义运行命令
                 cmd_parts = run.split()
                 exe_name = cmd_parts[0]
                 args = " ".join(cmd_parts[1:]) if len(cmd_parts) > 1 else ""
-                
-                # 生成 .sh 脚本（Git Bash）
-                sh_path = bin_dir / base_name
-                content = f'#!/bin/bash\n{exe_name} {args} "$@"\n'
-                sh_path.write_text(content.replace("\\", "/"))
-                sh_path.chmod(0o755)
-                
-                # 生成 .bat 脚本（Windows）
-                bat_path = bin_dir / f"{base_name}.bat"
-                content = f'@echo off\n{exe_name} {args} %*\n'
-                bat_path.write_text(content.replace("/", "\\"))
-            elif target.is_absolute():
-                resolved_target = target
+                content = f'@echo off\n"{exe_name}" {args} %*\n'
+            elif target.exists():
+                target_abs = str(target).replace("/", "\\")
+                content = f'@echo off\n"{target_abs}" %*\n'
             else:
-                resolved_target = (bin_dir / target).resolve()
+                cmd_name = target.name
+                content = f"@echo off\n{cmd_name} %*\n"
 
-            if not run:
-                # 检查 target 是否存在
-                if target.exists():
-                    # target 存在（文件在 tools/）
-                    target_str = str(target)
-                    content = f'#!/bin/bash\n"{target_str}" "$@"\n'
-                else:
-                    # target 不存在（PackageManager 等），用 target 作为命令名
-                    cmd_name = target.name
-                    content = f'#!/bin/bash\n{cmd_name} "$@"\n'
-            else:
-                # 有自定义运行命令
-                cmd_parts = run.split()
-                exe_path = cmd_parts[0]
-                args = " ".join(cmd_parts[1:]) if len(cmd_parts) > 1 else ""
-                
-                # 检查第一个参数是否是实际路径
-                target_check = Path(exe_path)
-                if target_check.exists():
-                    # 是实际路径
-                    content = f'#!/bin/bash\n"{exe_path}" {args} "$@"\n'
-                else:
-                    # 是命令名
-                    content = f'#!/bin/bash\n{exe_path} {args} "$@"\n'
-            
-            bin_path.write_text(content)
-            bin_path.chmod(0o755)
+            bat_path = bin_dir / f"{base_name}.bat"
+            bat_path.write_text(content.replace("/", "\\"))
 
     def remove_bin_entry(self, bin_path: Path) -> None:
         if bin_path.exists():
             bin_path.unlink()
-        if self.is_msys:
+        if self.is_windows:
             bin_dir = bin_path.parent
             base_name = bin_path.stem
             bat_path = bin_dir / f"{base_name}.bat"
@@ -295,10 +285,10 @@ class Platform:
         entry = self.get_bin_entry(bin_dir, name)
         if not entry:
             return None
-        if self.is_msys:
-            return entry
         if entry.is_symlink():
             return entry.resolve()
+        if entry.is_file():
+            return entry
         return entry
 
 

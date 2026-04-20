@@ -72,7 +72,7 @@ class PackageManagerInstaller(Installer):
             result = InstallResult(
                 False, "Tool does not support uninstall via package manager", self.name
             )
-            log_uninstall(tool.display_name, False, result.message)
+            log_uninstall(tool.display_name, "ERROR", result.message)
             return result
 
         uninstall_cmds = {
@@ -92,15 +92,15 @@ class PackageManagerInstaller(Installer):
                 f"Cannot uninstall {tool.package_name} via {self.manager}",
                 self.name,
             )
-            log_uninstall(tool.display_name, False, result.message)
+            log_uninstall(tool.display_name, "ERROR", result.message)
             return result
 
         try:
             run_subprocess(cmd, shell=True, check=True, capture_output=True, text=True)
             result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
-            log_uninstall(tool.display_name, True, result.message)
+            log_uninstall(tool.display_name, "INFO", result.message)
             return result
         except subprocess.CalledProcessError as e:
             result = InstallResult(False, f"Uninstall failed: {e.stderr}", self.name)
-            log_uninstall(tool.display_name, False, result.message)
+            log_uninstall(tool.display_name, "ERROR", result.message)
             return result

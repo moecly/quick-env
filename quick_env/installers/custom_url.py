@@ -108,7 +108,7 @@ class CustomURLInstaller(Installer):
 
             version = self.get_version(tool)
             log_install(
-                tool.display_name, self.name, "INFO", version, "Installed successfully"
+                tool.display_name, self.name, "INFO", version or "", "Installed successfully"
             )
             return InstallResult(
                 True, f"Installed {tool.display_name}", self.name, version

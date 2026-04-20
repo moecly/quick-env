@@ -1,8 +1,9 @@
 """GitHub Release 安装器"""
+import os
 import re
 import subprocess
 from pathlib import Path
-from typing import Optional
+from typing import Optional, Union
 
 from ..installer import (
     InstallResult,
@@ -192,13 +193,17 @@ class GitHubInstaller(Installer):
         else:
             entries = [tool.name]
 
+        from ..tools import LinkConfig
+
         for entry in entries:
-            if hasattr(entry, "glob"):
+            if isinstance(entry, LinkConfig):
                 glob = entry.glob
                 bin_name = entry.to if entry.to else glob
+                run_cmd = entry.run if entry.run else ""
             else:
-                glob = entry
-                bin_name = entry
+                glob = str(entry)
+                bin_name = str(entry)
+                run_cmd = ""
 
             if "/" in glob or "\\" in glob:
                 exe = extracted / glob
@@ -206,29 +211,23 @@ class GitHubInstaller(Installer):
                     continue
             else:
                 exe = self._find_specific_executable(extracted, glob)
-                if not exe.exists():
+                if exe is None or not exe.exists():
                     continue
 
             make_executable(exe)
             bin_path = bin_dir / self.platform.bin_name(bin_name)
             self.platform.remove_bin_entry(bin_path)
 
-            run_cmd = entry.run if hasattr(entry, "run") else ""
-
             if run_cmd:
-                if exe and exe.exists():
-                    run_parts = run_cmd.split()
-                    run_parts[0] = str(exe.resolve())
-                    run_cmd = " ".join(run_parts)
+                run_parts = run_cmd.split()
+                run_parts[0] = str(exe.resolve())
+                run_cmd = " ".join(run_parts)
                 self.platform.install_bin_entry(
                     bin_path, Path(run_cmd.split()[0]), run_cmd
                 )
             else:
-                if exe and exe.exists():
-                    relative_target = os.path.relpath(exe, bin_dir)
-                    self.platform.install_bin_entry(bin_path, Path(relative_target))
-                else:
-                    self.platform.install_bin_entry(bin_path, Path(glob))
+                relative_target = os.path.relpath(exe, bin_dir)
+                self.platform.install_bin_entry(bin_path, Path(relative_target))
 
         self._cleanup_old_versions(tool, version)
 
@@ -270,18 +269,6 @@ class GitHubInstaller(Installer):
         except subprocess.CalledProcessError as e:
             return InstallResult(False, f"Clone failed: {e.stderr}", self.name)
 
-        if tool.config_link:
-            user_link = Path(os.path.expanduser(tool.config_link))
-            user_link.parent.mkdir(parents=True, exist_ok=True)
-            if user_link.exists() or user_link.is_symlink():
-                if user_link.is_symlink():
-                    user_link.unlink()
-                else:
-                    backup = user_link.with_suffix(".bak")
-                    self.platform.move(Path(str(user_link)), Path(str(backup)))
-            if dest.is_dir():
-                self.platform.create_symlink(dest, user_link)
-
         return InstallResult(True, f"Installed {tool.display_name}", self.name)
 
     def uninstall(self, tool: Tool) -> InstallResult:
@@ -301,7 +288,7 @@ class GitHubInstaller(Installer):
                     self.platform.rmtree(item)
 
         result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
-        log_uninstall(tool.display_name, True, result.message)
+        log_uninstall(tool.display_name, "INFO", result.message)
         return result
 
     def _get_config_dest(self, tool: Tool) -> Optional[Path]:

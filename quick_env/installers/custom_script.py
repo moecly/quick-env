@@ -74,7 +74,7 @@ class CustomScriptInstaller(Installer):
                     tool.display_name,
                     self.name,
                     "INFO",
-                    version,
+                    version or "",
                     "Installed successfully",
                 )
                 return InstallResult(

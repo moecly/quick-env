@@ -263,5 +263,5 @@ class DotfileInstaller(Installer):
             self.platform.rmtree(dest)
 
         result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
-        log_uninstall(tool.display_name, True, result.message)
+        log_uninstall(tool.display_name, "INFO", result.message)
         return result

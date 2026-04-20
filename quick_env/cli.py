@@ -80,13 +80,13 @@ def install(
     is_install_all = "all" in tools
 
     if is_install_all:
-        tools = list(config.get_all_tools().values())
+        tools_to_install = list(config.get_all_tools().values())
 
-        if parallel and len(tools) > 1:
+        if parallel and len(tools_to_install) > 1:
             console.print(
-                f"[cyan]Installing {len(tools)} tools in parallel...[/cyan]\n"
+                f"[cyan]Installing {len(tools_to_install)} tools in parallel...[/cyan]\n"
             )
-            results = install_parallel(tools, force=force)
+            results = install_parallel(tools_to_install, force=force)
 
             success_count = sum(1 for r in results if r.success)
             fail_count = len(results) - success_count
@@ -102,9 +102,9 @@ def install(
             )
             return
 
-        tools = list(config.get_all_tools().keys())
+        tool_names: List[str] = list(config.get_all_tools().keys())
 
-    for tool_name in tools:
+    for tool_name in tool_names:
         tool = config.get_tool(tool_name)
         if not tool:
             console.print(f"[red]Unknown tool: {tool_name}[/red]")
@@ -162,12 +162,12 @@ def uninstall(
     config = get_config()
 
     if "all" in tools:
-        tools = list(config.get_all_tools().values())
+        tools_to_uninstall = list(config.get_all_tools().values())
     else:
-        tools = [config.get_tool(t) for t in tools]
-        tools = [t for t in tools if t is not None]
+        tools_to_uninstall = [config.get_tool(t) for t in tools]
+        tools_to_uninstall = [t for t in tools_to_uninstall if t is not None]
 
-    for tool in tools:
+    for tool in tools_to_uninstall:
         if tool.is_dotfile():
             installer = InstallerFactory.get_installer("dotfile")
         else:

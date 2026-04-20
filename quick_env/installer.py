@@ -250,7 +250,7 @@ def get_version_info(tool: Tool) -> VersionInfo:
 
     sources = []
     for name in tool.installable_by:
-        priority = tool.get_priority(name, 100)
+        priority = tool.get_priority("default", name, 100)
         sources.append((name, priority))
     sources.sort(key=lambda x: x[1])
 
@@ -579,6 +579,8 @@ class GitHubInstaller(Installer):
         bin_dir.mkdir(parents=True, exist_ok=True)
 
         # 确定使用 links 还是 bin_entries
+        from .tools import LinkConfig
+
         if tool.links:
             entries = tool.links
         elif tool.bin_entries:
@@ -587,55 +589,38 @@ class GitHubInstaller(Installer):
             entries = [tool.name]
 
         for entry in entries:
-            # 解析 glob 和 bin 入口名
-            if hasattr(entry, "glob"):
-                # LinkConfig 对象 (dotfile 或新的 binary links)
+            if isinstance(entry, LinkConfig):
                 glob = entry.glob
                 bin_name = entry.to if entry.to else glob
+                run_cmd = entry.run if entry.run else ""
             else:
-                # 字符串形式 (兼容 bin_entries)
-                glob = entry
-                bin_name = entry
+                glob = str(entry)
+                bin_name = str(entry)
+                run_cmd = ""
 
-            # 区分模糊搜索 vs 精确路径
             if "/" in glob or "\\" in glob:
-                # 精确路径
                 exe = extracted / glob
                 if not exe.exists():
                     continue
             else:
-                # 模糊搜索
                 exe = self._find_specific_executable(extracted, glob)
-                if not exe:
+                if exe is None:
                     continue
 
             make_executable(exe)
             bin_path = bin_dir / self.platform.bin_name(bin_name)
             self.platform.remove_bin_entry(bin_path)
 
-            # 处理 run 命令和 target
-            run_cmd = entry.run if hasattr(entry, "run") else ""
-
             if run_cmd:
-                # 有自定义运行命令
-                if exe and exe.exists():
-                    # exe 存在（GitHub/CustomURL），替换命令名为实际路径
-                    run_parts = run_cmd.split()
-                    run_parts[0] = str(exe.resolve())  # 替换为实际路径
-                    run_cmd = " ".join(run_parts)
-                # 如果 exe 不存在，保持原样（PackageManager 等）
+                run_parts = run_cmd.split()
+                run_parts[0] = str(exe.resolve())
+                run_cmd = " ".join(run_parts)
                 self.platform.install_bin_entry(
                     bin_path, Path(run_cmd.split()[0]), run_cmd
                 )
             else:
-                # 无自定义运行命令
-                if exe and exe.exists():
-                    # exe 存在，引用实际文件
-                    relative_target = os.path.relpath(exe, bin_dir)
-                    self.platform.install_bin_entry(bin_path, Path(relative_target))
-                else:
-                    # exe 不存在（PackageManager 等），用命令名
-                    self.platform.install_bin_entry(bin_path, Path(glob))
+                relative_target = os.path.relpath(exe, bin_dir)
+                self.platform.install_bin_entry(bin_path, Path(relative_target))
 
         self._cleanup_old_versions(tool, version)
 
@@ -678,18 +663,6 @@ class GitHubInstaller(Installer):
         except subprocess.CalledProcessError as e:
             return InstallResult(False, f"Clone failed: {e.stderr}", self.name)
 
-        if tool.config_link:
-            user_link = Path(os.path.expanduser(tool.config_link))
-            user_link.parent.mkdir(parents=True, exist_ok=True)
-            if user_link.exists() or user_link.is_symlink():
-                if user_link.is_symlink():
-                    user_link.unlink()
-                else:
-                    backup = user_link.with_suffix(".bak")
-                    self.platform.move(Path(str(user_link)), Path(str(backup)))
-            if dest.is_dir():
-                self.platform.create_symlink(dest, user_link)
-
         return InstallResult(True, f"Installed {tool.display_name}", self.name)
 
     def uninstall(self, tool: Tool) -> InstallResult:
@@ -709,7 +682,7 @@ class GitHubInstaller(Installer):
                     self.platform.rmtree(item)
 
         result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
-        log_uninstall(tool.display_name, True, result.message)
+        log_uninstall(tool.display_name, "INFO", result.message)
         return result
 
     def _get_config_dest(self, tool: Tool) -> Optional[Path]:
@@ -788,7 +761,7 @@ class PackageManagerInstaller(Installer):
             result = InstallResult(
                 False, "Tool does not support uninstall via package manager", self.name
             )
-            log_uninstall(tool.display_name, False, result.message)
+            log_uninstall(tool.display_name, "ERROR", result.message)
             return result
 
         uninstall_cmds = {
@@ -808,17 +781,17 @@ class PackageManagerInstaller(Installer):
                 f"Cannot uninstall {tool.package_name} via {self.manager}",
                 self.name,
             )
-            log_uninstall(tool.display_name, False, result.message)
+            log_uninstall(tool.display_name, "ERROR", result.message)
             return result
 
         try:
             run_subprocess(cmd, shell=True, check=True, capture_output=True, text=True)
             result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
-            log_uninstall(tool.display_name, True, result.message)
+            log_uninstall(tool.display_name, "INFO", result.message)
             return result
         except subprocess.CalledProcessError as e:
             result = InstallResult(False, f"Uninstall failed: {e.stderr}", self.name)
-            log_uninstall(tool.display_name, False, result.message)
+            log_uninstall(tool.display_name, "ERROR", result.message)
             return result
 
 
@@ -1054,23 +1027,13 @@ class DotfileInstaller(Installer):
                         self._create_link(matching[0], dest_path)
 
     def uninstall(self, tool: Tool) -> InstallResult:
-        if tool.is_dotfile():
+        if not tool.is_dotfile():
             return InstallResult(
-                False, "Use dotfile uninstall for config repos", self.name
+                False, "Use appropriate uninstall for config repos", self.name
             )
 
-        bin_path = self._get_bin_path(tool)
-        self.platform.remove_bin_entry(bin_path)
-
-        data_dir = Path(self.paths["quick_env_tools"])
-        if data_dir.exists():
-            prefix = f"{tool.name}_"
-            for item in data_dir.iterdir():
-                if item.is_dir() and item.name.startswith(prefix):
-                    self.platform.rmtree(item)
-
         result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
-        log_uninstall(tool.display_name, True, result.message)
+        log_uninstall(tool.display_name, "INFO", result.message)
         return result
 
         for link_config in tool.links:
@@ -1082,7 +1045,7 @@ class DotfileInstaller(Installer):
             self.platform.rmtree(dest)
 
         result = InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
-        log_uninstall(tool.display_name, True, result.message)
+        log_uninstall(tool.display_name, "INFO", result.message)
         return result
 
 
@@ -1205,7 +1168,7 @@ class CustomScriptInstaller(Installer):
                     tool.display_name,
                     self.name,
                     "INFO",
-                    version,
+                    version or "",
                     "Installed successfully",
                 )
                 return InstallResult(
@@ -1337,7 +1300,7 @@ class CustomURLInstaller(Installer):
 
             version = self.get_version(tool)
             log_install(
-                tool.display_name, self.name, "INFO", version, "Installed successfully"
+                tool.display_name, self.name, "INFO", version or "", "Installed successfully"
             )
             return InstallResult(
                 True, f"Installed {tool.display_name}", self.name, version

@@ -296,6 +296,12 @@ def compare_versions(v1: str, v2: str) -> int:
     return (v1_parts > v2_parts) - (v1_parts < v2_parts)
 
 
+def _parse_version_output(output: str) -> Optional[str]:
+    """从命令输出中解析版本号"""
+    match = re.search(r"(\d+\.\d+\.?\d*)", output)
+    return match.group(1) if match else None
+
+
 class Installer(ABC):
     name: str = "base"
     priority: int = 100
@@ -309,16 +315,45 @@ class Installer(ABC):
         pass
 
     @abstractmethod
-    def get_version(self, tool: Tool) -> Optional[str]:
-        pass
-
-    @abstractmethod
     def install(self, tool: Tool) -> InstallResult:
         pass
 
     @abstractmethod
     def uninstall(self, tool: Tool) -> InstallResult:
         pass
+
+    def get_version(self, tool: Tool) -> Optional[str]:
+        """统一版本检测流程"""
+        if tool.custom_version_cmd:
+            return self._run_version_cmd(tool.custom_version_cmd)
+
+        bin_path = self._find_bin_entry(tool.name)
+        if bin_path:
+            return self._run_binary_version(bin_path)
+
+        return self._get_version_fallback(tool)
+
+    def _find_bin_entry(self, name: str) -> Optional[Path]:
+        paths = get_env_paths()
+        bin_dir = Path(paths["quick_env_bin"])
+        platform = detect_platform()
+        return platform.get_bin_executable_path(bin_dir, name)
+
+    def _run_version_cmd(self, cmd: str) -> Optional[str]:
+        try:
+            result = run_subprocess(cmd, shell=True, capture_output=True, text=True, timeout=10)
+            if result.returncode == 0:
+                return _parse_version_output(result.stdout + result.stderr)
+        except Exception:
+            pass
+        return None
+
+    def _run_binary_version(self, bin_path: Path) -> Optional[str]:
+        return self._run_version_cmd(str(bin_path) + " --version")
+
+    def _get_version_fallback(self, tool: Tool) -> Optional[str]:
+        """子类可覆盖的回退逻辑"""
+        return None
 
     def _create_bin_entry(self, tool: Tool) -> None:
         """默认创建 bin 入口 - 子类可覆盖"""

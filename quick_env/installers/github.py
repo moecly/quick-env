@@ -65,31 +65,18 @@ class GitHubInstaller(Installer):
         bin_dir = Path(self.paths["quick_env_bin"])
         return self.platform.is_bin_valid(bin_dir, tool.name)
 
-    def get_version(self, tool: Tool) -> Optional[str]:
+    def _get_version_fallback(self, tool: Tool) -> Optional[str]:
+        # 对于 config_repo，用 git date
         if tool.config_repo:
             return self._get_git_version(tool)
-        bin_dir = Path(self.paths["quick_env_bin"])
-        executable = self.platform.get_bin_executable_path(bin_dir, tool.name)
-        if executable:
-            if executable.parent.exists():
-                version = self._parse_version_from_data_dir(executable.parent)
+        # 从 tools/ 目录解析版本号
+        tools_dir = Path(self.paths["quick_env_tools"])
+        prefix = f"{tool.name}_"
+        for item in tools_dir.iterdir():
+            if item.is_dir() and item.name.startswith(prefix):
+                version = self._parse_version_from_data_dir(item)
                 if version:
                     return version
-            return self._get_binary_version(executable)
-        return None
-
-    def _get_binary_version(self, bin_path: Path) -> Optional[str]:
-        try:
-            result = run_subprocess(
-                [str(bin_path), "--version"], capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                output = result.stdout + result.stderr
-                match = re.search(r"(\d+\.\d+\.?\d*)", output)
-                if match:
-                    return match.group(1)
-        except Exception:
-            pass
         return None
 
     def _get_git_version(self, tool: Tool) -> Optional[str]:

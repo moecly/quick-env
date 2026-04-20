@@ -44,34 +44,13 @@ class CustomURLInstaller(Installer):
         bin_dir = Path(self.paths["quick_env_bin"])
         return self.platform.is_bin_valid(bin_dir, tool.name)
 
-    def get_version(self, tool: Tool) -> Optional[str]:
-        if tool.custom_version_cmd:
-            try:
-                result = run_subprocess(
-                    tool.custom_version_cmd,
-                    shell=True,
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                if result.returncode == 0:
-                    output = result.stdout.strip()
-                    version_match = re.search(r"(\d+\.\d+\.\d+[\d.a-z-]*)", output)
-                    if version_match:
-                        return version_match.group(1)
-                    return output.split()[0] if output else None
-            except Exception:
-                pass
-
-        bin_path = self._get_bin_path(tool)
-        if bin_path.exists() or bin_path.is_symlink():
-            executable = self.platform.get_bin_executable_path(
-                Path(self.paths["quick_env_bin"]), tool.name
-            )
-            if executable and executable.parent.exists():
-                data_dir = executable.parent
-                if "_" in data_dir.name:
-                    return data_dir.name.split("_", 1)[1]
+    def _get_version_fallback(self, tool: Tool) -> Optional[str]:
+        tools_dir = Path(self.paths["quick_env_tools"])
+        prefix = f"{tool.name}_"
+        for item in tools_dir.iterdir():
+            if item.is_dir() and item.name.startswith(prefix):
+                if "_" in item.name:
+                    return item.name.split("_", 1)[1]
         return None
 
     def install(self, tool: Tool) -> InstallResult:

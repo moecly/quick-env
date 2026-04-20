@@ -41,24 +41,6 @@ class PackageManagerInstaller(Installer):
         tool_path = Path(which_path).resolve()
         return tool_path.parent.resolve() != quick_env_bin
 
-    def get_version(self, tool: Tool) -> Optional[str]:
-        cmd_name = get_command_name(tool)
-        which_path = self.platform.which(cmd_name)
-        if not which_path:
-            return None
-        try:
-            result = run_subprocess(
-                [cmd_name, "--version"], capture_output=True, text=True
-            )
-            if result.returncode == 0:
-                output = result.stdout + result.stderr
-                match = re.search(r"(\d+\.\d+\.?\d*)", output)
-                if match:
-                    return match.group(1)
-        except Exception:
-            pass
-        return None
-
     def install(self, tool: Tool) -> InstallResult:
         if not self.manager or not tool.package_name:
             return InstallResult(

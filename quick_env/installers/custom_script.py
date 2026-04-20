@@ -38,26 +38,6 @@ class CustomScriptInstaller(Installer):
             return tool_path.parent.resolve() == quick_env_bin
         return False
 
-    def get_version(self, tool: Tool) -> Optional[str]:
-        if tool.custom_version_cmd:
-            try:
-                result = run_subprocess(
-                    tool.custom_version_cmd,
-                    shell=True,
-                    capture_output=True,
-                    text=True,
-                    timeout=10,
-                )
-                if result.returncode == 0:
-                    output = result.stdout.strip()
-                    version_match = re.search(r"(\d+\.\d+\.\d+[\d.a-z-]*)", output)
-                    if version_match:
-                        return version_match.group(1)
-                    return output.split()[0] if output else None
-            except Exception:
-                pass
-        return None
-
     def install(self, tool: Tool) -> InstallResult:
         script = (
             tool.custom_script.get_script(

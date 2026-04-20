@@ -52,7 +52,7 @@ class DotfileInstaller(Installer):
         except Exception:
             return False
 
-    def get_version(self, tool: Tool) -> Optional[str]:
+    def _get_version_fallback(self, tool: Tool) -> Optional[str]:
         dest = self._get_dotfiles_dir(tool)
         if not dest.exists():
             return None

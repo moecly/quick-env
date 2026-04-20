@@ -844,9 +844,9 @@ def config_show():
         console.print()
 
 
-def _main():
+def main():
     app()
 
 
 if __name__ == "__main__":
-    _main()
+    main()

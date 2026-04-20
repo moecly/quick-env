@@ -80,13 +80,13 @@ def install(
     is_install_all = "all" in tools
 
     if is_install_all:
-        tools_to_install = list(config.get_all_tools().values())
+        tools_to_process = list(config.get_all_tools().values())
 
-        if parallel and len(tools_to_install) > 1:
+        if parallel and len(tools_to_process) > 1:
             console.print(
-                f"[cyan]Installing {len(tools_to_install)} tools in parallel...[/cyan]\n"
+                f"[cyan]Installing {len(tools_to_process)} tools in parallel...[/cyan]\n"
             )
-            results = install_parallel(tools_to_install, force=force)
+            results = install_parallel(tools_to_process, force=force)
 
             success_count = sum(1 for r in results if r.success)
             fail_count = len(results) - success_count
@@ -102,7 +102,11 @@ def install(
             )
             return
 
-        tool_names: List[str] = list(config.get_all_tools().keys())
+        # all 模式但非并行，转换为 tool names
+        tool_names = list(config.get_all_tools().keys())
+    else:
+        # 直接使用 tools 参数
+        tool_names = tools
 
     for tool_name in tool_names:
         tool = config.get_tool(tool_name)

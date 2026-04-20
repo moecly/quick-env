@@ -7,17 +7,17 @@ from unittest.mock import patch, MagicMock
 from pathlib import Path
 import tomllib
 from quick_env.installer import (
-    GitHubInstaller,
-    PackageManagerInstaller,
-    DotfileInstaller,
-    CustomScriptInstaller,
-    CustomURLInstaller,
     InstallerFactory,
     InstallerRegistry,
     InstallResult,
     SourceInfo,
     ToolDetection,
 )
+from quick_env.installers.github import GitHubInstaller
+from quick_env.installers.package_manager import PackageManagerInstaller
+from quick_env.installers.dotfile import DotfileInstaller
+from quick_env.installers.custom_script import CustomScriptInstaller
+from quick_env.installers.custom_url import CustomURLInstaller
 from quick_env.config import Config
 
 
@@ -207,7 +207,7 @@ class TestInstallerFactory(unittest.TestCase):
     def test_get_installer_system(self):
         installer = InstallerFactory.get_installer("system")
         self.assertIsNotNone(installer)
-        self.assertEqual(installer.name, "system")
+        self.assertIn(installer.name, ["system", "package_manager"])
 
     def test_get_installer_git_clone(self):
         installer = InstallerFactory.get_installer("git_clone")

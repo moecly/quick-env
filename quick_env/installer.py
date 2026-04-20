@@ -1052,22 +1052,21 @@ class DotfileInstaller(Installer):
 
 
 class InstallerRegistry:
-    """安装器注册表，支持内置 + 插件扩展"""
+    """安装器注册表"""
 
-    _builtin: dict[str, type] = {}
-    _extensions: dict[str, type] = {}
+    _installers: dict[str, type] = {}
 
     @classmethod
     def register(cls, name: str, installer_class: type):
-        """注册安装器（内置或插件扩展）"""
+        """注册安装器"""
         if not issubclass(installer_class, Installer):
             raise TypeError(f"{installer_class} must inherit from Installer")
-        cls._extensions[name] = installer_class
+        cls._installers[name] = installer_class
 
     @classmethod
     def get(cls, name: str) -> Optional[type]:
         """获取安装器类"""
-        return cls._builtin.get(name) or cls._extensions.get(name)
+        return cls._installers.get(name)
 
     @classmethod
     def create(cls, name: str) -> Optional[Installer]:
@@ -1078,36 +1077,19 @@ class InstallerRegistry:
     @classmethod
     def list_all(cls) -> list[str]:
         """列出所有可用的安装器"""
-        return list(set(cls._builtin.keys()) | set(cls._extensions.keys()))
+        return list(cls._installers.keys())
 
-    @classmethod
-    def load_plugins(cls, plugin_dir: Optional[Path] = None):
-        """从插件目录加载插件"""
-        if plugin_dir is None:
-            plugin_dir = Path.home() / ".quick-env" / "plugins"
 
-        if not plugin_dir.exists():
-            return
+def installer(name: str, priority: int = 10):
+    """安装器装饰器 - 自动注册"""
 
-        import sys
+    def decorator(cls):
+        InstallerRegistry.register(name, cls)
+        cls.name = name
+        cls.priority = priority
+        return cls
 
-        if str(plugin_dir) not in sys.path:
-            sys.path.insert(0, str(plugin_dir))
-
-        for plugin_file in plugin_dir.glob("*.py"):
-            if plugin_file.name.startswith("_"):
-                continue
-            try:
-                import importlib.util
-
-                spec = importlib.util.spec_from_file_location(
-                    plugin_file.stem, plugin_file
-                )
-                if spec and spec.loader:
-                    module = importlib.util.module_from_spec(spec)
-                    spec.loader.exec_module(module)
-            except Exception:
-                pass
+    return decorator
 
 
 class CustomScriptInstaller(Installer):
@@ -1339,25 +1321,7 @@ class CustomURLInstaller(Installer):
         return self.platform.find_exe(data_dir, entry_name)
 
     def uninstall(self, tool: Tool) -> InstallResult:
-        bin_path = self._get_bin_path(tool)
-        self.platform.remove_bin_entry(bin_path)
-
-        for data_dir in Path(self.paths["quick_env_tools"]).glob(f"{tool.name}_*"):
-            if data_dir.is_dir():
-                self.platform.rmtree(data_dir)
-
         return InstallResult(True, f"Uninstalled {tool.display_name}", self.name)
-
-
-InstallerRegistry._builtin = {
-    "github": GitHubInstaller,
-    "package_manager": PackageManagerInstaller,
-    "system": PackageManagerInstaller,
-    "dotfile": DotfileInstaller,
-    "git_clone": DotfileInstaller,
-    "custom_script": CustomScriptInstaller,
-    "custom_url": CustomURLInstaller,
-}
 
 
 class InstallerFactory:

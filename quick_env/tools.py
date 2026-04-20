@@ -307,18 +307,6 @@ class Tool:
             return self.custom_script.priority
         return default
 
-    def is_installer_supported(
-        self, platform: str, installer_name: str, platform_arch: str = ""
-    ) -> bool:
-        """检查安装方式是否支持"""
-        if installer_name == "github" and self.github:
-            return self.github.is_supported(platform)
-        if installer_name == "package_manager" and self.package_manager:
-            return True
-        if installer_name == "custom_script" and self.custom_script:
-            return self.custom_script.is_supported(platform)
-        return True
-
     def get_github_asset_pattern(
         self, platform: str, platform_arch: str = ""
     ) -> str | None:
@@ -341,18 +329,6 @@ class Tool:
         if self.custom_url:
             return self.custom_url.get_url(platform_arch, platform)
         return None
-
-    def get_priority(
-        self, platform: str, installer_name: str, default: int = 100
-    ) -> int:
-        """根据平台和安装方式获取优先级"""
-        if installer_name == "github" and self.github:
-            return self.github.priority
-        if installer_name == "package_manager" and self.package_manager:
-            return self.package_manager.priority
-        if installer_name == "custom_script" and self.custom_script:
-            return self.custom_script.priority
-        return default
 
     def is_platform_supported(self, platform: str, platform_arch: str = "") -> bool:
         """检查工具在平台上是否支持（默认 True）"""

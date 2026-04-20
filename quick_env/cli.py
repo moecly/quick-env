@@ -844,5 +844,9 @@ def config_show():
         console.print()
 
 
-def main():
+def _main():
     app()
+
+
+if __name__ == "__main__":
+    _main()

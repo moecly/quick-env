@@ -5,7 +5,7 @@ from pathlib import Path
 from typing import Optional
 
 from .platform import detect_platform, Platform
-from .tools import Tool, LinkConfig, GithubConfig, PackageManagerConfig, CustomUrlConfig
+from .tools import Tool, LinkConfig, GithubConfig, PackageManagerConfig, CustomUrlConfig, CustomScriptConfig
 
 
 class ToolConfig(Tool):
@@ -142,8 +142,6 @@ class Config:
             custom_script_data = tool_data.get("custom_script")
             custom_script_config = None
             if custom_script_data:
-                from .tools import CustomScriptConfig  # 延迟导入避免循环依赖
-
                 custom_script_config = CustomScriptConfig.from_dict(custom_script_data)
 
             self.tools[name] = ToolConfig(
@@ -155,10 +153,10 @@ class Config:
                 aliases=tool_data.get("aliases", []),
                 links=links,
                 exclude=tool_data.get("exclude", []),
-                github=github_config,
-                package_manager=pm_config,
-                custom_url=custom_url_config,
-                custom_script=custom_script_config,
+                github=github_config or GithubConfig(),
+                package_manager=pm_config or PackageManagerConfig(),
+                custom_url=custom_url_config or CustomUrlConfig(),
+                custom_script=custom_script_config or CustomScriptConfig(),
                 _config_repo=tool_data.get("config_repo", ""),
                 _config_branch=tool_data.get("config_branch", "main"),
                 _custom_version_cmd=tool_data.get("custom_version_cmd", ""),

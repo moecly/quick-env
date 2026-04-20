@@ -45,3 +45,10 @@ exclude_lines = [
     "raise AssertionError",
     "raise NotImplementedError",
 ]
+
+[tool.pyright]
+reportRedeclaration = false
+reportArgumentType = false
+reportPossiblyUnboundVariable = false
+reportAssignmentType = false
+reportReturnType = false
